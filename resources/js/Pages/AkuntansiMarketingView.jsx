@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import JobdeskInbox from '@/Components/Shared/JobdeskInbox'
 import ManagerMessageBox from '@/Components/Shared/ManagerMessageBox'
+import NotificationBell from '@/Components/Notifications/NotificationBell'
+
 import { 
   Users, 
   Plus, 
@@ -1044,9 +1046,7 @@ export default function AkuntansiMarketingView({
             <span className="bg-[#f7f5ed] border border-[#e9e5d9] px-3 py-1 rounded-full text-[11px] font-medium text-[#1c2826]">
               {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </span>
-            <button className="relative bg-transparent border-none text-[#8c9087] cursor-pointer hover:text-[#1c2826]">
-              <Bell className="w-[18px] h-[18px]" />
-            </button>
+            <NotificationBell user={user} />
             <HeaderUserProfile fallbackUser={user} />
           </div>
         </header>

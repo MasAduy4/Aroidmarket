@@ -6,6 +6,8 @@ import ManagerMessageBox from '@/Components/Shared/ManagerMessageBox'
 import ProfileSettingsModal from '@/Components/Shared/ProfileSettingsModal';
 import HeaderUserProfile from '@/Components/Shared/HeaderUserProfile';
 import { useCurrentUser } from '@/Components/Shared/useCurrentUser';
+import NotificationBell from '@/Components/Notifications/NotificationBell'
+
 import {
   Boxes, Edit3, FileBarChart2, Filter, Leaf,
   PackageCheck, Plus, Search, Sprout, Tag, Warehouse, Barcode, Check, X, AlertTriangle, Trash2,
@@ -699,9 +701,7 @@ export default function PjGreenhouse({ plants = { data: [], links: [] }, categor
               <span className="hidden sm:inline bg-[#f7f5ed] border border-[#e9e5d9] px-3 py-1 rounded-full text-[11px] font-medium text-[#1c2826] whitespace-nowrap">
                 {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </span>
-              <button className="relative bg-transparent border-none text-[#8c9087] cursor-pointer hover:text-[#1c2826]">
-                <Bell className="w-[18px] h-[18px]" />
-              </button>
+              <NotificationBell user={user} />
             </div>
           </header>
 

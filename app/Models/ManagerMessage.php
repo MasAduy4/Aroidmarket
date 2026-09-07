@@ -9,11 +9,17 @@ class ManagerMessage extends Model
 {
     protected $fillable = [
         'user_id',
+        'recipient_id',
         'message',
     ];
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function recipient(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'recipient_id');
     }
 }

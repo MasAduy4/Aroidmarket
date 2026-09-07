@@ -60,9 +60,6 @@ export default function Sidebar({ active, setActive, open, setOpen, user: fallba
             <strong>Aroid<span>Market</span></strong>
             <small>OPERATIONAL HUB</small>
           </div>
-          <button className="icon-button sidebar-close" onClick={() => setOpen(false)} aria-label="Tutup menu">
-            <X size={18} />
-          </button>
         </div>
 
         <nav className="sidebar-nav">

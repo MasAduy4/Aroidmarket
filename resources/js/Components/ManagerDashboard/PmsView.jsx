@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { router } from '@inertiajs/react';
+import ManagerMessageComposer from '@/Components/Notifications/ManagerMessageComposer';
+
 import { 
   ShoppingBag, 
   DollarSign, 

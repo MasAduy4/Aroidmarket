@@ -9,6 +9,7 @@ use App\Http\Controllers\JobDeskController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\ManagerPmsController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\ManagerMessageController;
@@ -75,6 +76,16 @@ Route::middleware(['auth'])->group(function () {
         '/profile/avatar',
         [ProfileController::class, 'avatar']
     )->name('profile.avatar');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Notifications
+    |--------------------------------------------------------------------------
+    */
+    Route::get(
+        '/notifications',
+        [NotificationController::class, 'index']
+    )->name('notifications.index');
 });
 
 
@@ -91,17 +102,17 @@ Route::middleware(['auth', 'role:manager_pms'])->group(function () {
             '/sheet/{sheetName}',
             [ManagerPmsController::class, 'storeSheetRow']
         )->name('sheet.store');
-    
+
         Route::put(
             '/sheet/{sheetName}/{id}',
             [ManagerPmsController::class, 'updateSheetRow']
         )->name('sheet.update');
-    
+
         Route::delete(
             '/sheet/{sheetName}/{id}',
             [ManagerPmsController::class, 'destroySheetRow']
         )->name('sheet.destroy');
-    
+
         // route manager lainnya yang sudah ada...
     });
 
@@ -460,6 +471,11 @@ Route::middleware(['auth'])->group(function () {
         '/manager-messages',
         [ManagerMessageController::class, 'store']
     )->name('manager-messages.store');
+
+    Route::post(
+        '/manager-messages/send',
+        [ManagerMessageController::class, 'sendToUser']
+    )->name('manager-messages.send');
 
     Route::delete(
         '/manager-messages/{managerMessage}',

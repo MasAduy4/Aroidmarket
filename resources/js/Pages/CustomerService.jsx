@@ -7,6 +7,8 @@ import ProfileSettingsModal from '@/Components/Shared/ProfileSettingsModal';
 import HeaderUserProfile from '@/Components/Shared/HeaderUserProfile';
 import { useCurrentUser } from '@/Components/Shared/useCurrentUser';
 import ManagerMessageBox from '@/Components/Shared/ManagerMessageBox'
+import NotificationBell from '@/Components/Notifications/NotificationBell'
+
 
 import {
   Bell,
@@ -731,10 +733,7 @@ export default function CustomerService({ reports = [], managerMessages = [] }) 
             <span className="hidden sm:inline bg-[#f7f5ed] border border-[#e9e5d9] px-3 py-1 rounded-full text-[11px] font-medium text-[#1c2826]">
               {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </span>
-            <button className="relative bg-transparent border-none text-[#8c9087] cursor-pointer hover:text-[#1c2826]">
-              <Bell className="w-[18px] h-[18px]" />
-              {escalationCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#d96b27] rounded-full" />}
-            </button>
+            <NotificationBell user={user} />
         <HeaderUserProfile fallbackUser={user} />
           </div>
         </header>
