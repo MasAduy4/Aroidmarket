@@ -20,7 +20,7 @@ Ikuti langkah-langkah di bawah ini untuk menjalankan proyek di komputer lokal:
 
 ### 1. Clone Repository
 ```bash
-git clone [https://github.com/MasAduy4/Optimusfarm.git](https://github.com/MasAduy4/Optimusfarm.git)
+git clone [https://github.com/MasAduy4/Aroidmarket.git](https://github.com/MasAduy4/Aroidmarket.git)
 cd Optimusfarm
 
 ```
