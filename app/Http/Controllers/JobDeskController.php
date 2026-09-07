@@ -6,84 +6,222 @@ use App\Models\JobDesk;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Inertia\Inertia;
+use Carbon\CarbonImmutable;
 
 class JobDeskController extends Controller
 {
-    // Menampilkan daftar jobdesk berdasarkan role
+    private function isManager(): bool
+    {
+        return Auth::user()?->role === 'manager_pms';
+    }
+
+    private function activeWeekStart(): CarbonImmutable
+    {
+        return CarbonImmutable::now('Asia/Jakarta')->startOfWeek(CarbonImmutable::MONDAY);
+    }
+
+    private function isOperationalUser(): bool
+    {
+        return in_array(
+            Auth::user()?->role,
+            [
+                'customer_service',
+                'pj_greenhouse',
+                'akuntansi_marketing',
+            ],
+            true
+        );
+    }
+
     public function index()
     {
         $user = Auth::user();
 
-        // Jika admin atau manager, bisa melihat semua tugas. Jika user biasa, hanya tugas miliknya sendiri.
-        if ($user->role === 'admin' || $user->role === 'manager') {
-            $jobDesks = JobDesk::with(['user', 'manager'])->latest()->get();
-            $users = User::all(); // Untuk pilihan assign tugas ke staff
+        abort_unless(
+            $this->isManager() || $this->isOperationalUser(),
+            403,
+            'Anda tidak memiliki akses ke JobDesk.'
+        );
+
+        if ($this->isManager()) {
+            $jobDesks = JobDesk::with(['user', 'manager'])
+                ->where('created_at', '>=', $this->activeWeekStart())
+                ->latest()
+                ->get();
+
+            $users = User::query()
+                ->whereIn('role', [
+                    'customer_service',
+                    'pj_greenhouse',
+                    'akuntansi_marketing',
+                ])
+                ->where('is_active', true)
+                ->orderBy('role')
+                ->orderBy('name')
+                ->get(['id', 'name', 'role']);
         } else {
-            $jobDesks = JobDesk::with(['user', 'manager'])->where('user_id', $user->id)->latest()->get();
-            $users = collect([$user]);
+            $jobDesks = JobDesk::with(['user', 'manager'])
+                ->where('user_id', $user->id)
+                ->where('created_at', '>=', $this->activeWeekStart())
+                ->latest()
+                ->get();
+
+            $users = collect([$user->only(['id', 'name', 'role'])]);
         }
 
-        return Inertia::render('JobDesks/Index', [
+        return \Inertia\Inertia::render('JobDesks/Index', [
             'jobDesks' => $jobDesks,
-            'users' => $users
+            'users' => $users,
         ]);
     }
 
-    // Menyimpan jobdesk baru
+    public function mine()
+    {
+        abort_unless(
+            $this->isOperationalUser(),
+            403,
+            'Endpoint ini hanya dapat digunakan oleh user operasional.'
+        );
+
+        $jobDesks = JobDesk::with([
+            'manager:id,name,role',
+        ])
+            ->where('user_id', Auth::id())
+            ->where('created_at', '>=', $this->activeWeekStart())
+            ->latest()
+            ->get([
+                'id',
+                'user_id',
+                'assigned_by',
+                'title',
+                'description',
+                'target_date',
+                'status',
+                'created_at',
+                'updated_at',
+            ]);
+
+        return response()->json([
+            'data' => $jobDesks,
+        ]);
+    }
+
     public function store(Request $request)
     {
-        $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'target_date' => 'required|date',
+        abort_unless(
+            $this->isManager(),
+            403,
+            'Hanya Manager PMS yang dapat membuat JobDesk.'
+        );
+
+        $validated = $request->validate([
+            'user_id' => ['required', 'integer', 'exists:users,id'],
+            'title' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'target_date' => ['required', 'date'],
         ]);
 
+        $assignedUser = User::query()
+            ->whereKey($validated['user_id'])
+            ->whereIn('role', [
+                'customer_service',
+                'pj_greenhouse',
+                'akuntansi_marketing',
+            ])
+            ->where('is_active', true)
+            ->first();
+
+        abort_unless($assignedUser, 422, 'User tujuan tidak valid.');
+
         JobDesk::create([
-            'user_id' => $request->user_id,
+            'user_id' => $assignedUser->id,
             'assigned_by' => Auth::id(),
-            'title' => $request->title,
-            'description' => $request->description,
-            'target_date' => $request->target_date,
+            'title' => $validated['title'],
+            'description' => $validated['description'] ?? null,
+            'target_date' => $validated['target_date'],
             'status' => 'pending',
         ]);
 
-        return redirect()->back()->with('success', 'Jobdesk berhasil ditambahkan!');
+        return back()->with('success', 'Jobdesk berhasil diberikan.');
     }
 
-    // Memperbarui status tugas (misal dari pending jadi completed)
     public function updateStatus(Request $request, JobDesk $jobDesk)
     {
-        $request->validate([
-            'status' => 'required|string|in:pending,in_progress,completed,validated',
+        abort_unless(
+            $this->isManager(),
+            403,
+            'Hanya Manager PMS yang dapat mengubah status JobDesk.'
+        );
+
+        $validated = $request->validate([
+            'status' => ['required', 'string', 'in:pending,in_progress,completed,validated'],
         ]);
 
         $jobDesk->update([
-            'status' => $request->status,
+            'status' => $validated['status'],
         ]);
 
-        return redirect()->back()->with('success', 'Status jobdesk berhasil diperbarui!');
+        return back()->with('success', 'Status JobDesk berhasil diperbarui.');
     }
 
-    // User menandai tugas selesai dikerjakan
     public function complete(JobDesk $jobDesk)
     {
-        $jobDesk->update(['status' => 'completed']);
-        return redirect()->back()->with('success', 'Jobdesk ditandai selesai.');
+        abort_unless(
+            $this->isOperationalUser(),
+            403,
+            'Role Anda tidak dapat menyelesaikan JobDesk.'
+        );
+
+        abort_unless(
+            (int) $jobDesk->user_id === (int) Auth::id(),
+            403,
+            'Anda hanya dapat menyelesaikan JobDesk milik Anda sendiri.'
+        );
+
+        if ($jobDesk->status === 'validated') {
+            return back()->with('error', 'JobDesk yang sudah divalidasi tidak dapat diubah.');
+        }
+
+        $jobDesk->update([
+            'status' => 'completed',
+        ]);
+
+        return response()->json([
+            'message' => 'Jobdesk ditandai selesai.',
+        ]);
     }
 
-    // Manager memvalidasi tugas
     public function validateJob(JobDesk $jobDesk)
     {
-        $jobDesk->update(['status' => 'validated']);
-        return redirect()->back()->with('success', 'Jobdesk berhasil divalidasi.');
+        abort_unless(
+            $this->isManager(),
+            403,
+            'Hanya Manager PMS yang dapat memvalidasi JobDesk.'
+        );
+
+        abort_unless(
+            $jobDesk->status === 'completed',
+            422,
+            'JobDesk harus diselesaikan terlebih dahulu.'
+        );
+
+        $jobDesk->update([
+            'status' => 'validated',
+        ]);
+
+        return back()->with('success', 'Jobdesk berhasil divalidasi.');
     }
 
-    // Menghapus jobdesk
     public function destroy(JobDesk $jobDesk)
     {
+        abort_unless(
+            $this->isManager(),
+            403,
+            'Hanya Manager PMS yang dapat menghapus JobDesk.'
+        );
+
         $jobDesk->delete();
-        return redirect()->back()->with('success', 'Jobdesk berhasil dihapus.');
+
+        return back()->with('success', 'Jobdesk berhasil dihapus.');
     }
 }

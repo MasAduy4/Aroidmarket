@@ -66,7 +66,16 @@ class LoginRequest extends FormRequest
             ]);
         }
 
-        // 2. Jika email terdaftar tapi password salah / autentikasi gagal
+        // 2. Akun nonaktif tidak boleh membuat session login.
+        if (! $user->is_active) {
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'email' => 'Akun Anda sedang dinonaktifkan. Hubungi Manager PMS.',
+            ]);
+        }
+
+        // 3. Jika email terdaftar tapi password salah / autentikasi gagal
         if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
 

@@ -11,7 +11,8 @@ import {
   X,
   Plus,
   Info,
-  Edit3
+  Edit3,
+  Trash2
 } from 'lucide-react';
 
 // HELPER DOKUMEN / RUPIAH FORMATTER
@@ -35,6 +36,48 @@ const formatJutaDisplay = (val) => {
   if (val === 0) return '0Jt';
   const isInteger = Number.isInteger(val);
   return isInteger ? `${val}Jt` : `${val.toFixed(2)}Jt`;
+};
+
+const formatManagerMessageDate = (value) => {
+  if (!value) return '-';
+
+  const raw = String(value).trim();
+
+  // ManagerMessageController sends Laravel's UTC timestamp as:
+  // "DD Mon YYYY HH:mm". Treat it as UTC and display it as WIB.
+  const match = raw.match(/^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})\s+(\d{2}):(\d{2})$/);
+
+  if (match) {
+    const [, day, monthText, year, hour, minute] = match;
+    const monthMap = {
+      Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+      Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+    };
+
+    const month = monthMap[monthText];
+
+    if (month !== undefined) {
+      const utcDate = new Date(Date.UTC(
+        Number(year),
+        month,
+        Number(day),
+        Number(hour),
+        Number(minute)
+      ));
+
+      return new Intl.DateTimeFormat('id-ID', {
+        timeZone: 'Asia/Jakarta',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).format(utcDate);
+    }
+  }
+
+  return raw;
 };
 
 function MetricCard({ icon: Icon, label, value, trend, tone = 'green', onClick }) {
@@ -188,14 +231,37 @@ function PerformanceChart({ viewMode, financeBreakdown = [], monthlyRevenueData 
 export default function ManagerPmsView({ 
   stats, 
   reportsData = [], 
+  managerMessages = [],
   jobdesksData = { cs: [], greenhouse: [], akuntansi: [], marketing: [] },
+  jobdeskUsers = [],
+  jobdeskSummary = {},
   financeBreakdown = [],
   monthlyRevenueData = {},
   endorseCandidates = [],
   endorseProps = []
 }) {
   const [selectedDivision, setSelectedDivision] = useState('all');
+  const managerMessageReports = (Array.isArray(managerMessages) ? managerMessages : []).map((message) => ({
+    id: message.id,
+    division: message.division || 'other',
+    divisionLabel: message.divisionLabel || 'Lainnya',
+    senderName: message.senderName || 'User',
+    date: formatManagerMessageDate(message.date),
+    title: message.title || `Pesan dari ${message.senderName || 'User'}`,
+    content: message.content || message.message || '',
+    status: 'Pesan',
+    source: 'manager_message',
+  }));
+
   const [detailModalItem, setDetailModalItem] = useState(null);
+  const handleDeleteManagerMessage = (id) => {
+    if (!window.confirm('Hapus pesan laporan ini?')) return;
+
+    router.delete(`/manager-messages/${id}`, {
+      preserveScroll: true,
+    });
+  };
+
   const [showAddJobdeskModal, setShowAddJobdeskModal] = useState(false);
   const [showFinanceModal, setShowFinanceModal] = useState(false);
   const [showCrudMonthlyModal, setShowCrudMonthlyModal] = useState(false);
@@ -213,9 +279,19 @@ export default function ManagerPmsView({
   const [displayNominal, setDisplayNominal] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [newJobdeskText, setNewJobdeskText] = useState('');
-  const [newJobdeskTargetDiv, setNewJobdeskTargetDiv] = useState('cs');
+  const [newJobdeskTitle, setNewJobdeskTitle] = useState('');
+  const [newJobdeskDescription, setNewJobdeskDescription] = useState('');
+  const [newJobdeskUserId, setNewJobdeskUserId] = useState('');
+  const [newJobdeskTargetDate, setNewJobdeskTargetDate] = useState('');
+  const [jobdeskSubmitting, setJobdeskSubmitting] = useState(false);
   const [jobdesks, setJobdesks] = useState(jobdesksData);
+
+  // Filter daftar JobDesk Manager.
+  const [jobdeskPeriodFilter, setJobdeskPeriodFilter] = useState('current');
+  const [jobdeskDivisionFilter, setJobdeskDivisionFilter] = useState('all');
+  const [jobdeskStatusFilter, setJobdeskStatusFilter] = useState('all');
+  const [jobdeskRecipientFilter, setJobdeskRecipientFilter] = useState('all');
+  const [jobdeskSearch, setJobdeskSearch] = useState('');
 
   useEffect(() => {
     if (jobdesksData) setJobdesks(jobdesksData);
@@ -229,11 +305,54 @@ export default function ManagerPmsView({
     }
   }, [editMonth, showCrudMonthlyModal, monthlyRevenueData]);
 
+  const currentJobdeskPeriods = Array.isArray(jobdeskSummary?.periods)
+    ? jobdeskSummary.periods
+    : [];
+
+  const selectedJobdeskPeriod = jobdeskPeriodFilter === 'current'
+    ? currentJobdeskPeriods.find((period) => period.isCurrent)
+    : currentJobdeskPeriods.find((period) => period.key === jobdeskPeriodFilter);
+
+  const jobdeskRows = selectedJobdeskPeriod?.jobs ?? Object.values(jobdesks || {}).flat();
+
+  const filteredJobdeskRows = jobdeskRows.filter((job) => {
+    const role = job.recipient?.role || '';
+    const status = job.status || 'pending';
+    const recipientId = String(job.recipient?.id ?? '');
+    const query = jobdeskSearch.trim().toLowerCase();
+
+    const matchesDivision =
+      jobdeskDivisionFilter === 'all' || role === jobdeskDivisionFilter;
+
+    const matchesStatus =
+      jobdeskStatusFilter === 'all' || status === jobdeskStatusFilter;
+
+    const matchesRecipient =
+      jobdeskRecipientFilter === 'all' || recipientId === jobdeskRecipientFilter;
+
+    const matchesSearch = !query || [
+      job.title,
+      job.description,
+      job.recipient?.name,
+      job.recipient?.role,
+    ].some((value) => String(value ?? '').toLowerCase().includes(query));
+
+    return matchesDivision && matchesStatus && matchesRecipient && matchesSearch;
+  });
+
+  const jobdeskRecipientOptions = Array.from(
+    new Map(
+      jobdeskRows
+        .filter((job) => job.recipient?.id)
+        .map((job) => [String(job.recipient.id), job.recipient])
+    ).values()
+  );
+
   const realStats = {
-    totalLahan: stats?.totalLahan || 0,
+    totalJobdesk: stats?.totalJobdesk || 0,
     finansial: stats?.finansial || 0,
     totalInfluencer: normalizedCandidates.length || stats?.totalInfluencer || 0,
-    totalPanen: stats?.totalPanen || 0
+    totalPendapatanToDate: stats?.totalPendapatanToDate || 0,
   };
 
   const handleNominalChange = (e) => {
@@ -268,17 +387,43 @@ export default function ManagerPmsView({
 
   const handleAddJobdeskSubmit = (e) => {
     e.preventDefault();
-    if (!newJobdeskText.trim()) return;
 
-    const newItem = { id: `custom-${Date.now()}`, text: newJobdeskText.trim(), isFixed: false, completed: false };
-    setJobdesks(prev => ({ ...prev, [newJobdeskTargetDiv]: [...(prev[newJobdeskTargetDiv] || []), newItem] }));
-    setNewJobdeskText('');
-    setShowAddJobdeskModal(false);
+    if (!newJobdeskTitle.trim() || !newJobdeskUserId || !newJobdeskTargetDate) {
+      return;
+    }
+
+    setJobdeskSubmitting(true);
+
+    router.post(
+      '/jobdesks',
+      {
+        user_id: Number(newJobdeskUserId),
+        title: newJobdeskTitle.trim(),
+        description: newJobdeskDescription.trim() || null,
+        target_date: newJobdeskTargetDate,
+      },
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          setNewJobdeskTitle('');
+          setNewJobdeskDescription('');
+          setNewJobdeskUserId('');
+          setNewJobdeskTargetDate('');
+          setShowAddJobdeskModal(false);
+        },
+        onFinish: () => setJobdeskSubmitting(false),
+      }
+    );
   };
 
-  const filteredReports = selectedDivision === 'all' 
-    ? reportsData 
-    : reportsData.filter(r => r.division === selectedDivision);
+  const combinedReports = [
+    ...managerMessageReports,
+    ...(Array.isArray(reportsData) ? reportsData : []),
+  ];
+
+  const filteredReports = selectedDivision === 'all'
+    ? combinedReports
+    : combinedReports.filter(r => r.division === selectedDivision);
 
   return (
     <div className="view-stack">
@@ -302,7 +447,12 @@ export default function ManagerPmsView({
 
         {/* METRIC GRID */}
         <section className="metric-grid">
-          <MetricCard icon={ShoppingBag} label="Total Lahan" value={realStats.totalLahan} trend="+Active" />
+          <MetricCard
+            icon={ShoppingBag}
+            label="Total Jobdesk"
+            value={realStats.totalJobdesk}
+            trend="+Lintas Divisi"
+          />
           
           <div className="relative group">
             <MetricCard 
@@ -332,7 +482,13 @@ export default function ManagerPmsView({
             </div>
           </div>
 
-          <MetricCard icon={Activity} label="Total Panen" value={`${realStats.totalPanen} kg`} trend="+Harvest" tone="dark" />
+          <MetricCard
+            icon={Activity}
+            label="Total Pendapatan"
+            value={formatRupiah(realStats.totalPendapatanToDate)}
+            trend="+Jan–Hari Ini"
+            tone="dark"
+          />
         </section>
 
         {/* CONTENT GRID UTAMA */}
@@ -397,8 +553,7 @@ export default function ManagerPmsView({
                     <option value="all">Semua Divisi</option>
                     <option value="cs">Customer Service</option>
                     <option value="greenhouse">PJ Greenhouse / Petani</option>
-                    <option value="akuntansi">Akuntansi</option>
-                    <option value="marketing">Marketing</option>
+                    <option value="akuntansi">Akuntansi & Marketing</option>
                   </select>
                 </div>
               </div>
@@ -413,7 +568,7 @@ export default function ManagerPmsView({
                           report.division === 'greenhouse' ? 'bg-emerald-100 text-emerald-800' :
                           report.division === 'akuntansi' ? 'bg-amber-100 text-amber-800' : 'bg-purple-100 text-purple-800'
                         }`}>
-                          {report.division?.toUpperCase()}
+                          {report.divisionLabel || (report.division === 'cs' ? 'Customer Service' : report.division === 'greenhouse' ? 'PJ Greenhouse' : report.division === 'akuntansi' ? 'Akuntansi & Marketing' : report.division || '-')}
                         </span>
                         <span className="text-xs text-slate-400">• {report.date}</span>
                       </div>
@@ -427,9 +582,26 @@ export default function ManagerPmsView({
                       }`}>
                         {report.status}
                       </span>
-                      <button onClick={() => setDetailModalItem(report)} className="text-slate-400 hover:text-emerald-700 p-1 rounded no-print">
-                        <Eye size={16} />
-                      </button>
+
+                      <div className="flex items-center gap-1 no-print">
+                        <button
+                          onClick={() => setDetailModalItem(report)}
+                          className="text-slate-400 hover:text-emerald-700 p-1 rounded"
+                          title="Lihat pesan"
+                        >
+                          <Eye size={16} />
+                        </button>
+
+                        {report.source === 'manager_message' && (
+                          <button
+                            onClick={() => handleDeleteManagerMessage(report.id)}
+                            className="text-slate-400 hover:text-red-600 p-1 rounded"
+                            title="Hapus pesan"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )) : (
@@ -450,15 +622,47 @@ export default function ManagerPmsView({
             
             <div className="division-list">
               {[
-                ['Customer Service', `${(jobdesks.cs || []).filter(i=>i.completed).length}/${(jobdesks.cs || []).length} Jobdesk`],
-                ['Greenhouse / Petani', `${(jobdesks.greenhouse || []).filter(i=>i.completed).length}/${(jobdesks.greenhouse || []).length} Jobdesk`],
-                ['Akuntansi (Pendapatan)', `${(jobdesks.akuntansi || []).filter(i=>i.completed).length}/${(jobdesks.akuntansi || []).length} Jobdesk`],
-                ['Marketing / Biaya', `${(jobdesks.marketing || []).filter(i=>i.completed).length}/${(jobdesks.marketing || []).length} Jobdesk`]
-              ].map(([name, detail]) => (
-                <div className="division-row" key={name}>
+                {
+                  key: 'customer_service',
+                  name: 'Customer Service',
+                  total: jobdeskSummary?.byDivision?.customer_service?.total ?? (jobdesks.cs || []).length,
+                  completed: jobdeskSummary?.byDivision?.customer_service?.completed ?? (jobdesks.cs || []).filter(i => i.completed).length,
+                  percentage: (jobdeskSummary?.byDivision?.customer_service?.total ?? (jobdesks.cs || []).length) > 0
+                    ? Math.round(((jobdeskSummary?.byDivision?.customer_service?.completed ?? (jobdesks.cs || []).filter(i => i.completed).length) / (jobdeskSummary?.byDivision?.customer_service?.total ?? (jobdesks.cs || []).length)) * 100)
+                    : 0,
+                },
+                {
+                  key: 'pj_greenhouse',
+                  name: 'PJ Greenhouse',
+                  total: jobdeskSummary?.byDivision?.pj_greenhouse?.total ?? (jobdesks.greenhouse || []).length,
+                  completed: jobdeskSummary?.byDivision?.pj_greenhouse?.completed ?? (jobdesks.greenhouse || []).filter(i => i.completed).length,
+                  percentage: (jobdeskSummary?.byDivision?.pj_greenhouse?.total ?? (jobdesks.greenhouse || []).length) > 0
+                    ? Math.round(((jobdeskSummary?.byDivision?.pj_greenhouse?.completed ?? (jobdesks.greenhouse || []).filter(i => i.completed).length) / (jobdeskSummary?.byDivision?.pj_greenhouse?.total ?? (jobdesks.greenhouse || []).length)) * 100)
+                    : 0,
+                },
+                {
+                  key: 'akuntansi_marketing',
+                  name: 'Akuntansi & Marketing',
+                  total: jobdeskSummary?.byDivision?.akuntansi_marketing?.total ?? (jobdesks.akuntansi || []).length,
+                  completed: jobdeskSummary?.byDivision?.akuntansi_marketing?.completed ?? (jobdesks.akuntansi || []).filter(i => i.completed).length,
+                  percentage: (jobdeskSummary?.byDivision?.akuntansi_marketing?.total ?? (jobdesks.akuntansi || []).length) > 0
+                    ? Math.round(((jobdeskSummary?.byDivision?.akuntansi_marketing?.completed ?? (jobdesks.akuntansi || []).filter(i => i.completed).length) / (jobdeskSummary?.byDivision?.akuntansi_marketing?.total ?? (jobdesks.akuntansi || []).length)) * 100)
+                    : 0,
+                },
+              ].map((item) => (
+                <div className="division-row" key={item.key}>
                   <div className="division-info">
-                    <strong>{name}</strong>
-                    <span>{detail}</span>
+                    <strong>{item.name}</strong>
+                    <span className="flex items-center justify-between gap-3">
+                      <span>{item.completed}/{item.total} Jobdesk</span>
+                      <strong className="text-xs text-emerald-700">{item.percentage}%</strong>
+                    </span>
+                    <span className="mt-1.5 block h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                      <span
+                        className="block h-full rounded-full bg-emerald-600 transition-all duration-300"
+                        style={{ width: `${item.percentage}%` }}
+                      />
+                    </span>
                   </div>
                 </div>
               ))}
@@ -467,6 +671,143 @@ export default function ManagerPmsView({
         </section>
 
       </div>
+
+      {/* DETAIL JOBDESK MANAGER */}
+      <section className="panel mt-6">
+        <div className="panel-heading flex-wrap gap-3">
+          <div>
+            <p className="eyebrow">PEMANTAUAN JOBDESK</p>
+            <h2>Daftar Jobdesk Lintas Divisi</h2>
+            <p className="panel-description">
+              {selectedJobdeskPeriod?.label || 'Minggu ini'} · {filteredJobdeskRows.length} jobdesk ditampilkan
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-2 p-4 border-b border-slate-100 bg-slate-50/60 no-print">
+          <select
+            value={jobdeskPeriodFilter}
+            onChange={(e) => setJobdeskPeriodFilter(e.target.value)}
+            className="text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white font-medium text-slate-800 outline-none"
+          >
+            <option value="current">Minggu Ini</option>
+            {currentJobdeskPeriods.filter((period) => !period.isCurrent).map((period) => (
+              <option key={period.key} value={period.key}>{period.label}</option>
+            ))}
+          </select>
+
+          <select
+            value={jobdeskDivisionFilter}
+            onChange={(e) => setJobdeskDivisionFilter(e.target.value)}
+            className="text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white font-medium text-slate-800 outline-none"
+          >
+            <option value="all">Semua Divisi</option>
+            <option value="customer_service">Customer Service</option>
+            <option value="pj_greenhouse">PJ Greenhouse</option>
+            <option value="akuntansi_marketing">Akuntansi & Marketing</option>
+          </select>
+
+          <select
+            value={jobdeskStatusFilter}
+            onChange={(e) => setJobdeskStatusFilter(e.target.value)}
+            className="text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white font-medium text-slate-800 outline-none"
+          >
+            <option value="all">Semua Status</option>
+            <option value="pending">Menunggu</option>
+            <option value="completed">Selesai</option>
+          </select>
+
+          <select
+            value={jobdeskRecipientFilter}
+            onChange={(e) => setJobdeskRecipientFilter(e.target.value)}
+            className="text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white font-medium text-slate-800 outline-none"
+          >
+            <option value="all">Semua Penerima</option>
+            {jobdeskRecipientOptions.map((recipient) => (
+              <option key={recipient.id} value={recipient.id}>
+                {recipient.name} — {recipient.role === 'customer_service'
+                  ? 'Customer Service'
+                  : recipient.role === 'pj_greenhouse'
+                    ? 'PJ Greenhouse'
+                    : 'Akuntansi & Marketing'}
+              </option>
+            ))}
+          </select>
+
+          <input
+            value={jobdeskSearch}
+            onChange={(e) => setJobdeskSearch(e.target.value)}
+            type="search"
+            placeholder="Cari jobdesk / penerima..."
+            className="text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white font-medium text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500"
+          />
+        </div>
+
+        <div className="divide-y divide-slate-100">
+          {filteredJobdeskRows.length > 0 ? (
+            filteredJobdeskRows.map((job) => (
+              <div
+                key={job.id}
+                className="p-3.5 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-slate-100 text-slate-700">
+                      {job.recipient?.role === 'customer_service'
+                        ? 'Customer Service'
+                        : job.recipient?.role === 'pj_greenhouse'
+                          ? 'PJ Greenhouse'
+                          : 'Akuntansi & Marketing'}
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      Target {job.target_date || '-'}
+                    </span>
+                  </div>
+
+                  <h4 className="text-sm font-semibold text-slate-800 mt-1">
+                    {job.title || 'Tanpa judul'}
+                  </h4>
+
+                  <p className="text-xs text-slate-500 mt-1">
+                    {job.description || 'Tidak ada catatan tambahan.'}
+                  </p>
+
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <span className="text-[10px] text-slate-400">
+                      Penerima: <strong className="text-slate-600">{job.recipient?.name || '-'}</strong>
+                    </span>
+                    {job.assigned_by?.name && (
+                      <span className="text-[10px] text-slate-400">
+                        • Diberikan oleh: <strong className="text-slate-600">{job.assigned_by.name}</strong>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <span className={`shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full border ${
+                  ['completed', 'validated'].includes(job.status)
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : job.status === 'in_progress'
+                      ? 'bg-blue-50 text-blue-700 border-blue-200'
+                      : 'bg-amber-50 text-amber-700 border-amber-200'
+                }`}>
+                  {job.status === 'validated'
+                    ? 'Divalidasi'
+                    : job.status === 'completed'
+                      ? 'Selesai'
+                      : job.status === 'in_progress'
+                        ? 'Dikerjakan'
+                        : 'Menunggu'}
+                </span>
+              </div>
+            ))
+          ) : (
+            <div className="p-8 text-center text-sm text-slate-400">
+              Tidak ada jobdesk yang sesuai dengan filter.
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* MODAL INPUT PENDAPATAN BULANAN */}
       {showCrudMonthlyModal && (() => {
@@ -651,43 +992,137 @@ export default function ManagerPmsView({
       {/* MODAL TAMBAH JOBDESK */}
       {showAddJobdeskModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 no-print">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 space-y-5">
             <div className="flex items-center justify-between border-b pb-3">
               <div>
-                <p className="text-[10px] font-bold uppercase text-emerald-800 m-0">FORM MANAGER PMS</p>
-                <h3 className="font-bold text-base text-slate-800 m-0">Tambah Jobdesk Tambahan</h3>
+                <p className="text-[10px] font-bold uppercase text-emerald-800 m-0">
+                  FORM MANAGER PMS
+                </p>
+                <h3 className="font-bold text-lg text-slate-800 m-0">
+                  Kirim Jobdesk
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Buat instruksi dan kirim langsung ke user yang dituju.
+                </p>
               </div>
-              <button onClick={() => setShowAddJobdeskModal(false)} className="text-slate-400 hover:text-slate-600 p-1"><X size={18} /></button>
+
+              <button
+                type="button"
+                onClick={() => setShowAddJobdeskModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+                disabled={jobdeskSubmitting}
+              >
+                <X size={18} />
+              </button>
             </div>
 
-            <form onSubmit={handleAddJobdeskSubmit} className="space-y-3">
+            <form onSubmit={handleAddJobdeskSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Pilih Divisi Tujuan</label>
-                <select 
-                  value={newJobdeskTargetDiv} 
-                  onChange={(e) => setNewJobdeskTargetDiv(e.target.value)}
-                  className="w-full text-xs border rounded-lg p-2.5 bg-white font-medium text-slate-800 outline-none"
-                >
-                  <option value="cs">Customer Service</option>
-                  <option value="greenhouse">PJ Greenhouse / Petani</option>
-                  <option value="akuntansi">Akuntansi</option>
-                  <option value="marketing">Marketing</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Deskripsi Tugas</label>
-                <textarea 
-                  value={newJobdeskText} 
-                  onChange={(e) => setNewJobdeskText(e.target.value)}
-                  className="w-full text-xs border rounded-lg p-2.5 min-h-[90px] outline-none text-slate-800"
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Judul Jobdesk
+                </label>
+                <input
+                  type="text"
+                  value={newJobdeskTitle}
+                  onChange={(e) => setNewJobdeskTitle(e.target.value)}
+                  className="w-full text-sm border border-slate-200 rounded-lg p-2.5 bg-white font-medium text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="Contoh: Validasi stok Monstera"
+                  maxLength={255}
                   required
+                  disabled={jobdeskSubmitting}
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Catatan / Instruksi
+                </label>
+                <textarea
+                  value={newJobdeskDescription}
+                  onChange={(e) => setNewJobdeskDescription(e.target.value)}
+                  className="w-full text-sm border border-slate-200 rounded-lg p-2.5 min-h-[110px] outline-none text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                  placeholder="Tulis instruksi atau keterangan bebas untuk user yang menerima tugas."
+                  disabled={jobdeskSubmitting}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Diberikan Kepada
+                  </label>
+                  <select
+                    value={newJobdeskUserId}
+                    onChange={(e) => setNewJobdeskUserId(e.target.value)}
+                    className="w-full text-sm border border-slate-200 rounded-lg p-2.5 bg-white font-medium text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500"
+                    required
+                    disabled={jobdeskSubmitting}
+                  >
+                    <option value="">Pilih user...</option>
+                    {(jobdeskUsers || []).map((userItem) => (
+                      <option key={userItem.id} value={userItem.id}>
+                        {userItem.name} — {
+                          userItem.role === 'customer_service'
+                            ? 'Customer Service'
+                            : userItem.role === 'pj_greenhouse'
+                              ? 'PJ Greenhouse'
+                              : 'Akuntansi & Marketing'
+                        }
+                      </option>
+                    ))}
+                  </select>
+
+                  {(jobdeskUsers || []).length === 0 && (
+                    <p className="text-[10px] text-amber-600 mt-1">
+                      Belum ada user aktif yang bisa menerima jobdesk.
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Target Tanggal
+                  </label>
+                  <input
+                    type="date"
+                    value={newJobdeskTargetDate}
+                    onChange={(e) => setNewJobdeskTargetDate(e.target.value)}
+                    className="w-full text-sm border border-slate-200 rounded-lg p-2.5 bg-white font-medium text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500"
+                    required
+                    disabled={jobdeskSubmitting}
+                  />
+                </div>
+              </div>
+
+              <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3">
+                <p className="text-[11px] text-emerald-800 m-0">
+                  User penerima hanya akan melihat jobdesk yang ditujukan kepadanya.
+                  Manager tetap dapat melihat progress seluruh divisi.
+                </p>
+              </div>
+
               <div className="flex justify-end gap-2 border-t pt-3">
-                <button type="button" onClick={() => setShowAddJobdeskModal(false)} className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
-                <button type="submit" className="px-4 py-2 text-xs font-semibold bg-emerald-800 text-white rounded-lg">Simpan</button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddJobdeskModal(false)}
+                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                  disabled={jobdeskSubmitting}
+                >
+                  Batal
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={
+                    jobdeskSubmitting ||
+                    !newJobdeskTitle.trim() ||
+                    !newJobdeskUserId ||
+                    !newJobdeskTargetDate
+                  }
+                  className="px-4 py-2 text-xs font-semibold bg-emerald-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {jobdeskSubmitting ? 'Mengirim...' : 'Kirim Jobdesk'}
+                </button>
               </div>
             </form>
           </div>

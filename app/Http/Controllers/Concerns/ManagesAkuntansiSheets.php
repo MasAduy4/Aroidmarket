@@ -94,6 +94,7 @@ trait ManagesAkuntansiSheets
         $data = $row->toArray();
 
         $usdFields = [
+            'total_usd',
             'penahanan_usd',
             'admin_fee_usd',
             'net_usd',
@@ -201,13 +202,12 @@ trait ManagesAkuntansiSheets
             ],
             'Uang $ Aroid Market' => [
                 'transaction_date' => ['nullable', 'date_format:Y-m-d'],
-                'name'             => ['nullable', 'string', 'max:255'],
-                'payment_method'   => ['nullable', 'string', 'max:255'],
+                'name'             => ['required', 'string', 'max:255'],
+                'payment_method'   => ['required', 'string', 'max:255'],
                 'total_usd'        => ['nullable', 'numeric', 'min:0'],
-                'penahanan_usd'   => ['nullable', 'numeric', 'min:0'],
-                'admin_fee_usd'   => ['nullable', 'numeric', 'min:0'],
-                'withdrawal_usd'  => ['nullable', 'numeric', 'min:0'],
-                'withdrawal_idr'  => ['nullable', 'numeric', 'min:0'],
+                'penahanan_usd'    => ['nullable', 'numeric', 'min:0'],
+                'admin_fee_usd'    => ['nullable', 'numeric', 'min:0'],
+                'withdrawal_usd'   => ['nullable', 'numeric', 'min:0'],
             ],
             'Belanja Tanaman Order' => [
                 'purchase_date'          => ['required', 'date_format:Y-m-d'],
@@ -226,14 +226,12 @@ trait ManagesAkuntansiSheets
                 'quantity'               => ['required', 'integer', 'min:1'],
                 'status'                 => ['required', 'in:selamat,tidak selamat'],
                 'courier'                => ['required', 'string', 'max:255'],
-                'payment_method'        => ['required', 'string', 'max:255'],
-                'revenue_usd'            => ['required', 'numeric', 'min:0'],
-                'exchange_rate'          => ['required', 'numeric', 'min:0'],
+                'payment_method'         => ['required', 'string', 'max:255'],
+                'revenue_usd'            => ['nullable', 'numeric', 'min:0'],
                 'total_plant_value'      => ['required', 'numeric', 'min:0'],
                 'packing_cost'           => ['nullable', 'numeric', 'min:0'],
                 'domestic_shipping_cost' => ['nullable', 'numeric', 'min:0'],
                 'palmstreet_fee'         => ['nullable', 'numeric', 'min:0'],
-                'note'                   => ['nullable', 'string', 'max:5000'],
             ],
             'Tanaman Baru' => [
                 'purchase_date'  => ['required', 'date_format:Y-m-d'],
@@ -299,9 +297,38 @@ trait ManagesAkuntansiSheets
             'total_price',
             'total',
             'net_usd',
+            'withdrawal_idr',
             'profit_loss',
             'saldo',
         ];
+
+        if ($sheetName === 'Orderan Terkirim') {
+            return [
+                'ship_date'              => $this->normalizeDateValue($input['ship_date'] ?? null),
+                'order_number'           => trim((string) ($input['order_number'] ?? '')),
+                'quantity'               => $this->normalizeNumber($input['quantity'] ?? null),
+                'status'                 => trim((string) ($input['status'] ?? '')),
+                'courier'                => trim((string) ($input['courier'] ?? '')),
+                'payment_method'         => trim((string) ($input['payment_method'] ?? '')),
+                'revenue_usd'            => $this->normalizeOptionalNumber($input['revenue_usd'] ?? null),
+                'total_plant_value'      => $this->normalizeNumber($input['total_plant_value'] ?? null),
+                'packing_cost'           => $this->normalizeOptionalNumber($input['packing_cost'] ?? null),
+                'domestic_shipping_cost' => $this->normalizeOptionalNumber($input['domestic_shipping_cost'] ?? null),
+                'palmstreet_fee'         => $this->normalizeOptionalNumber($input['palmstreet_fee'] ?? null),
+            ];
+        }
+
+        if ($sheetName === 'Uang $ Aroid Market') {
+            return [
+                'transaction_date' => $this->normalizeDateValue($input['transaction_date'] ?? null),
+                'name'             => trim((string) ($input['name'] ?? '')),
+                'payment_method'   => trim((string) ($input['payment_method'] ?? '')),
+                'total_usd'        => $this->normalizeOptionalNumber($input['total_usd'] ?? null),
+                'penahanan_usd'    => $this->normalizeOptionalNumber($input['penahanan_usd'] ?? null),
+                'admin_fee_usd'    => $this->normalizeOptionalNumber($input['admin_fee_usd'] ?? null),
+                'withdrawal_usd'   => $this->normalizeOptionalNumber($input['withdrawal_usd'] ?? null),
+            ];
+        }
 
         $data = [];
         foreach ($input as $key => $value) {
@@ -337,6 +364,15 @@ trait ManagesAkuntansiSheets
         }
 
         return $data;
+    }
+
+    private function normalizeOptionalNumber($value): ?float
+    {
+        if ($value === null || trim((string) $value) === '') {
+            return null;
+        }
+
+        return $this->normalizeNumber($value);
     }
 
     private function normalizeNumber($value): float
@@ -504,10 +540,10 @@ trait ManagesAkuntansiSheets
             $hasMeaningfulValue = false;
             foreach ([
                 'name', 'payment_method', 'total_usd', 'penahanan_usd',
-                'admin_fee_usd', 'withdrawal_usd', 'withdrawal_idr',
+                'admin_fee_usd', 'withdrawal_usd',
             ] as $field) {
                 $value = $data[$field] ?? null;
-                if ($value !== null && $value !== '') {
+                if ($value !== null && trim((string) $value) !== '') {
                     $hasMeaningfulValue = true;
                     break;
                 }
@@ -557,10 +593,10 @@ trait ManagesAkuntansiSheets
             $hasMeaningfulValue = false;
             foreach ([
                 'name', 'payment_method', 'total_usd', 'penahanan_usd',
-                'admin_fee_usd', 'withdrawal_usd', 'withdrawal_idr',
+                'admin_fee_usd', 'withdrawal_usd',
             ] as $field) {
                 $value = $data[$field] ?? null;
-                if ($value !== null && $value !== '') {
+                if ($value !== null && trim((string) $value) !== '') {
                     $hasMeaningfulValue = true;
                     break;
                 }

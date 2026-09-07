@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class PlantOrderPurchase extends Model
 {
     protected $fillable = [
-        'purchase_date', 'supplier_name', 'plant_name', 'quantity', 'price_per_unit',
+        'purchase_date', 'supplier_name', 'dummy', 'plant_name', 'quantity', 'price_per_unit',
         'subtotal', 'shipping_cost', 'total_price', 'purpose_order_reference',
         'status', 'note', 'recorded_by',
     ];

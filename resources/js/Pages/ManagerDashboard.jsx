@@ -13,7 +13,10 @@ export default function Page(props) {
     user, 
     stats, 
     customerServiceData, 
-    jobdeskData, 
+    managerMessages = [],
+    jobdeskData,
+    jobdeskUsers = [],
+    jobdeskSummary = {},
     laporanPanen, 
     laporanAktivitas,
     greenhousePlants,
@@ -41,7 +44,11 @@ export default function Page(props) {
           <PmsView 
             stats={stats} 
             customerServiceData={customerServiceData} 
-            jobdeskData={jobdeskData} 
+            managerMessages={managerMessages}
+            jobdeskData={jobdeskData}
+            jobdesksData={jobdeskData}
+            jobdeskUsers={jobdeskUsers}
+            jobdeskSummary={jobdeskSummary}
             financeBreakdown={financeBreakdown}
             monthlyRevenueData={monthlyRevenueData}
             endorseCandidates={endorseCandidates}
@@ -73,20 +80,35 @@ export default function Page(props) {
           <PmsView 
             stats={stats} 
             customerServiceData={customerServiceData} 
-            jobdeskData={jobdeskData} 
+            managerMessages={managerMessages}
+            jobdeskData={jobdeskData}
+            jobdesksData={jobdeskData}
+            jobdeskUsers={jobdeskUsers}
+            jobdeskSummary={jobdeskSummary}
             financeBreakdown={financeBreakdown}
             monthlyRevenueData={monthlyRevenueData}
             endorseCandidates={endorseCandidates}
           />
         );
     }
-  }, [active, stats, customerServiceData, jobdeskData, laporanPanen, laporanAktivitas, greenhousePlants, greenhouseStats, financial, financeBreakdown, monthlyRevenueData, endorseCandidates, sheets]); // 3. Tambahkan sheets ke dependency array
+  }, [active, stats, customerServiceData, managerMessages, jobdeskData, jobdeskUsers, jobdeskSummary, laporanPanen, laporanAktivitas, greenhousePlants, greenhouseStats, financial, financeBreakdown, monthlyRevenueData, endorseCandidates, sheets]); // 3. Tambahkan sheets ke dependency array
 
   return (
     <div className="app-shell">
-      <Sidebar active={active} setActive={setActive} open={sidebarOpen} setOpen={setSidebarOpen} user={user} handleLogout={handleLogout} />
+      <Sidebar
+        active={active}
+        setActive={setActive}
+        open={sidebarOpen}
+        setOpen={setSidebarOpen}
+        user={user}
+        handleLogout={handleLogout}
+      />
       <div className="main-shell">
-        <Header active={active} setOpen={setSidebarOpen} user={user} handleLogout={handleLogout} />
+        <Header
+          active={active}
+          setOpen={setSidebarOpen}
+          user={user}
+        />
         <main className="dashboard-main">
           <div className="welcome-row">
             <div>

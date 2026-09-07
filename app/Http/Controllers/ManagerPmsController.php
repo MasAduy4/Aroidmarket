@@ -16,6 +16,9 @@ use App\Models\AroidMarketUsdBalance;
 use App\Models\PlantOrderPurchase;
 use App\Models\ShippedOrder;
 use App\Models\NewPlantPurchase;
+use App\Models\JobDesk;
+use App\Models\ManagerMessage;
+use Carbon\CarbonImmutable;
 use App\Http\Controllers\Concerns\ManagesAkuntansiSheets;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -210,6 +213,14 @@ class ManagerPmsController extends Controller
             $monthlyRevenueData[$label] = $monthlySum;
         }
 
+        // 4b. Total pendapatan sesuai rekap bulanan yang dipakai modal "Kelola Data Bulanan".
+        // Dengan demikian card dashboard dan modal selalu memakai sumber angka yang sama.
+        $totalPendapatanToDate = array_sum($monthlyRevenueData);
+
+        // Total pendapatan tahun berjalan mengikuti rekap bulanan
+        // yang sama dengan modal "Kelola Data Bulanan".
+        $totalPendapatanToDate = array_sum($monthlyRevenueData);
+
         // 5. Data Influencer / Endorse Candidate
         $endorseCandidates = EndorseCandidate::latest()->get();
 
@@ -220,10 +231,21 @@ class ManagerPmsController extends Controller
             'in_progress' => $escalations->where('status', CsReport::STATUS_IN_PROGRESS)->count(),
             'resolved' => $escalations->where('status', CsReport::STATUS_RESOLVED)->count(),
             'overdue' => $escalations->filter(fn (CsReport $report) => $report->isOverdue())->count(),
+            // Total JobDesk lintas divisi.
+            // Sumber kebenaran: JobDesk.user.role, bukan category lama.
+            'totalJobdesk' => JobDesk::query()
+                ->where('created_at', '>=', $this->activeJobdeskWeekStart())
+                ->count(),
+            'completedJobdesk' => JobDesk::query()
+                ->where('created_at', '>=', $this->activeJobdeskWeekStart())
+                ->whereIn('status', ['completed', 'validated'])
+                ->count(),
+            'totalPendapatanToDate' => $totalPendapatanToDate,
+
             'totalLahan' => $totalLahan,
             'totalPanen' => $totalPanen,
             'totalInfluencer' => $endorseCandidates->count(),
-            'finansial' => $financial['netProfit'],
+            'finansial' => $totalIncome,
             // dipakai CustomerServiceView jika ingin override hitungan manual
             'totalCsEskalasi' => $csReports->where('is_escalation', true)->count(),
             'totalCsCatatan' => $csReports->where('is_escalation', false)->count(),
@@ -233,7 +255,93 @@ class ManagerPmsController extends Controller
         $jobdesksData = $this->buildJobdesksByDivision();
 
         // 8. Feed laporan lintas divisi CS + Greenhouse (panel "Pusat Laporan" di PmsView)
+        $managerMessagesData = ManagerMessage::with('user:id,name,role')
+            ->latest()
+            ->get()
+            ->map(fn (ManagerMessage $message) => [
+                'id' => $message->id,
+                'division' => match ($message->user?->role) {
+                    'customer_service' => 'cs',
+                    'pj_greenhouse' => 'greenhouse',
+                    'akuntansi_marketing' => 'akuntansi',
+                    default => 'other',
+                },
+                'divisionLabel' => match ($message->user?->role) {
+                    'customer_service' => 'Customer Service',
+                    'pj_greenhouse' => 'PJ Greenhouse',
+                    'akuntansi_marketing' => 'Akuntansi & Marketing',
+                    default => 'Lainnya',
+                },
+                'senderName' => $message->user?->name ?? 'User',
+                'date' => optional($message->created_at)->format('d M Y H:i'),
+                'title' => 'Pesan dari ' . ($message->user?->name ?? 'User'),
+                'content' => $message->message,
+            ])
+            ->values();
+
         $reportsData = $this->buildCrossDivisionReports($csReports, $laporanAktivitas);
+
+        // User aktif yang boleh menerima JobDesk dari Manager.
+        $jobdeskUsers = \App\Models\User::query()
+            ->whereIn('role', [
+                'customer_service',
+                'pj_greenhouse',
+                'akuntansi_marketing',
+            ])
+            ->where('is_active', true)
+            ->orderBy('role')
+            ->orderBy('name')
+            ->get([
+                'id',
+                'name',
+                'role',
+            ]);
+
+        // Rolling 4 minggu JobDesk untuk filter history Manager.
+        // Hanya 4 periode terbaru yang dikirim ke frontend.
+        $currentWeekStart = $this->activeJobdeskWeekStart();
+        $jobdeskPeriods = [];
+
+        for ($i = 0; $i < 4; $i++) {
+            $periodStart = $currentWeekStart->subWeeks($i);
+            $periodEnd = $periodStart->addWeek();
+
+            $periodJobs = JobDesk::with([
+                'user:id,name,role',
+                'manager:id,name,role',
+            ])
+                ->where('created_at', '>=', $periodStart)
+                ->where('created_at', '<', $periodEnd)
+                ->latest()
+                ->get()
+                ->map(fn ($job) => [
+                    'id' => $job->id,
+                    'title' => $job->title,
+                    'description' => $job->description,
+                    'target_date' => optional($job->target_date)->format('Y-m-d'),
+                    'status' => $job->status,
+                    'completed' => in_array($job->status, ['completed', 'validated'], true),
+                    'recipient' => [
+                        'id' => $job->user?->id,
+                        'name' => $job->user?->name,
+                        'role' => $job->user?->role,
+                    ],
+                    'assigned_by' => [
+                        'id' => $job->manager?->id,
+                        'name' => $job->manager?->name,
+                        'role' => $job->manager?->role,
+                    ],
+                ])
+                ->values()
+                ->all();
+
+            $jobdeskPeriods[] = [
+                'key' => $periodStart->format('Y-m-d'),
+                'label' => $periodStart->format('d M Y') . ' – ' . $periodEnd->subDay()->format('d M Y'),
+                'isCurrent' => $i === 0,
+                'jobs' => $periodJobs,
+            ];
+        }
 
         return Inertia::render('ManagerDashboard', [
             'user' => request()->user(),
@@ -265,38 +373,136 @@ class ManagerPmsController extends Controller
             // Tab Manager PMS (PmsView.jsx)
             'jobdeskData' => $jobdesksData,
             'jobdesksData' => $jobdesksData,
+            'jobdeskUsers' => $jobdeskUsers,
+            'jobdeskSummary' => [
+                'total' => JobDesk::query()
+                    ->where('created_at', '>=', $this->activeJobdeskWeekStart())
+                    ->count(),
+                'completed' => JobDesk::query()
+                    ->where('created_at', '>=', $this->activeJobdeskWeekStart())
+                    ->whereIn('status', ['completed', 'validated'])
+                    ->count(),
+                'pending' => JobDesk::query()
+                    ->where('created_at', '>=', $this->activeJobdeskWeekStart())
+                    ->where('status', 'pending')
+                    ->count(),
+                'inProgress' => JobDesk::query()
+                    ->where('created_at', '>=', $this->activeJobdeskWeekStart())
+                    ->where('status', 'in_progress')
+                    ->count(),
+                'validated' => JobDesk::query()
+                    ->where('created_at', '>=', $this->activeJobdeskWeekStart())
+                    ->where('status', 'validated')
+                    ->count(),
+                'byDivision' => [
+                    'customer_service' => [
+                        'total' => JobDesk::query()
+                            ->where('created_at', '>=', $this->activeJobdeskWeekStart())
+                            ->whereHas('user', fn ($q) => $q->where('role', 'customer_service'))
+                            ->count(),
+                        'completed' => JobDesk::query()
+                            ->where('created_at', '>=', $this->activeJobdeskWeekStart())
+                            ->whereHas('user', fn ($q) => $q->where('role', 'customer_service'))
+                            ->whereIn('status', ['completed', 'validated'])
+                            ->count(),
+                    ],
+                    'pj_greenhouse' => [
+                        'total' => JobDesk::query()
+                            ->where('created_at', '>=', $this->activeJobdeskWeekStart())
+                            ->whereHas('user', fn ($q) => $q->where('role', 'pj_greenhouse'))
+                            ->count(),
+                        'completed' => JobDesk::query()
+                            ->where('created_at', '>=', $this->activeJobdeskWeekStart())
+                            ->whereHas('user', fn ($q) => $q->where('role', 'pj_greenhouse'))
+                            ->whereIn('status', ['completed', 'validated'])
+                            ->count(),
+                    ],
+                    'akuntansi_marketing' => [
+                        'total' => JobDesk::query()
+                            ->where('created_at', '>=', $this->activeJobdeskWeekStart())
+                            ->whereHas('user', fn ($q) => $q->where('role', 'akuntansi_marketing'))
+                            ->count(),
+                        'completed' => JobDesk::query()
+                            ->where('created_at', '>=', $this->activeJobdeskWeekStart())
+                            ->whereHas('user', fn ($q) => $q->where('role', 'akuntansi_marketing'))
+                            ->whereIn('status', ['completed', 'validated'])
+                            ->count(),
+                    ],
+                ],
+                'periods' => $jobdeskPeriods,
+            ],
             'reportsData' => $reportsData,
+            'managerMessages' => $managerMessagesData,
         ]);
     }
 
     /**
-     * Kelompokkan JobDesk berdasarkan kategori menjadi bentuk yang dibutuhkan PmsView:
-     * { cs: [...], greenhouse: [...], akuntansi: [...], marketing: [...] }
+     * Kelompokkan JobDesk berdasarkan ROLE user penerima.
+     *
+     * Struktur yang digunakan:
+     * - job_desks.user_id      = penerima tugas
+     * - job_desks.assigned_by  = Manager yang memberikan tugas
+     *
+     * Tidak lagi menggunakan kolom category/text/completed lama.
      */
+    private function activeJobdeskWeekStart(): CarbonImmutable
+    {
+        return CarbonImmutable::now('Asia/Jakarta')->startOfWeek(CarbonImmutable::MONDAY);
+    }
+
     private function buildJobdesksByDivision(): array
     {
-        $grouped = ['cs' => [], 'greenhouse' => [], 'akuntansi' => [], 'marketing' => []];
+        $grouped = [
+            'cs' => [],
+            'greenhouse' => [],
+            'akuntansi' => [],
+            'marketing' => [],
+        ];
 
-        if (! class_exists(\App\Models\JobDesk::class)) {
-            return $grouped;
-        }
-
-        $jobdesks = \App\Models\JobDesk::latest()->get();
+        $jobdesks = JobDesk::with([
+            'user:id,name,role',
+            'manager:id,name,role',
+        ])
+            ->where('created_at', '>=', $this->activeJobdeskWeekStart())
+            ->latest()
+            ->get();
 
         foreach ($jobdesks as $job) {
-            $category = strtolower($job->category ?? '');
+            $role = $job->user?->role;
 
-            $division = match (true) {
-                str_contains($category, 'cs') || str_contains($category, 'customer') => 'cs',
-                str_contains($category, 'greenhouse') || str_contains($category, 'petani') => 'greenhouse',
-                str_contains($category, 'marketing') || str_contains($category, 'endorse') => 'marketing',
-                default => 'akuntansi',
+            $division = match ($role) {
+                'customer_service' => 'cs',
+                'pj_greenhouse' => 'greenhouse',
+                'akuntansi_marketing' => 'akuntansi',
+                default => null,
             };
+
+            // Role tidak termasuk target jobdesk operasional.
+            if ($division === null) {
+                continue;
+            }
 
             $grouped[$division][] = [
                 'id' => $job->id,
-                'text' => $job->text,
-                'completed' => (bool) $job->completed,
+                'title' => $job->title,
+                'description' => $job->description,
+                'target_date' => optional($job->target_date)->format('Y-m-d'),
+                'status' => $job->status,
+                'completed' => in_array(
+                    $job->status,
+                    ['completed', 'validated'],
+                    true
+                ),
+                'recipient' => [
+                    'id' => $job->user?->id,
+                    'name' => $job->user?->name,
+                    'role' => $job->user?->role,
+                ],
+                'assigned_by' => [
+                    'id' => $job->manager?->id,
+                    'name' => $job->manager?->name,
+                    'role' => $job->manager?->role,
+                ],
                 'isFixed' => true,
             ];
         }

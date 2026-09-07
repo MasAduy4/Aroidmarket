@@ -115,7 +115,7 @@ export default function GreenhouseView({
         <div className="panel-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <p className="eyebrow">INVENTARIS STOK</p>
-            <h2>Daftar Tanaman PJ Greenhouse Hub</h2>
+            <h2>Daftar Tanaman</h2>
           </div>
 
           {/* BAR FILTER & PENCARIAN */}

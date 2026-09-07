@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import JobdeskInbox from '@/Components/Shared/JobdeskInbox'
+import ManagerMessageBox from '@/Components/Shared/ManagerMessageBox'
 import { 
   Users, 
   Plus, 
@@ -19,9 +21,14 @@ import {
   Database,
   SendHorizontal,
   Calendar,
-  Check
+  Check,
+  Menu,
+  X as CloseIcon
 } from 'lucide-react';
 import { router } from '@inertiajs/react';
+import ProfileSettingsModal from '@/Components/Shared/ProfileSettingsModal';
+import HeaderUserProfile from '@/Components/Shared/HeaderUserProfile';
+import { useCurrentUser } from '@/Components/Shared/useCurrentUser';
 
 // =========================
 // VALIDATION & FORMATTING
@@ -489,7 +496,8 @@ export default function AkuntansiMarketingView({
   jobdesksProps = [], 
   financialProps = {},
   endorseProps = [],
-  sheetsProps = {} 
+  sheetsProps = {},
+  managerMessages = []
 }) {
   // Default data mingguan dan bulanan (JANUARI - OKTOBER)
   const defaultWeeklyIncome = [
@@ -517,52 +525,18 @@ export default function AkuntansiMarketingView({
 
   const [sentStatus, setSentStatus] = useState({});
 
-  // State Pengaturan Hub & Profil (Meniru halaman Manager)
+  // Pengaturan Hub & Profil dibagikan dengan pola yang sama seperti halaman role lain.
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [brandTitle, setBrandTitle] = useState('AroidMarket');
   const [brandSubtitle, setBrandSubtitle] = useState('OPERATIONAL HUB');
   const [brandLogo, setBrandLogo] = useState(null);
-  
-  const [userData, setUserData] = useState({ name: 'Admin Rani', role: 'Akuntansi & Marketing' });
-  const [userAvatar, setUserAvatar] = useState(null);
+  const { user, companyLogoUrl } = useCurrentUser();
 
-  // Temporary state di dalam modal pengaturan
-  const [tempBrandTitle, setTempBrandTitle] = useState(brandTitle);
-  const [tempBrandSubtitle, setTempBrandSubtitle] = useState(brandSubtitle);
-  const [tempBrandLogo, setTempBrandLogo] = useState(brandLogo);
-  const [tempName, setTempName] = useState(userData.name);
-  const [tempRole, setTempRole] = useState(userData.role);
-  const [tempUserAvatar, setTempUserAvatar] = useState(userAvatar);
+  const myManagerMessages = Array.isArray(managerMessages)
+    ? managerMessages
+    : (managerMessages?.data || []);
 
-  const getInitial = (name) => name ? name.substring(0, 2).toUpperCase() : 'AR';
-
-  // Handler upload logo brand lokal
-  const handleBrandLogoChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      setTempBrandLogo(imageUrl);
-    }
-  };
-
-  // Handler upload foto profil user lokal
-  const handleUserAvatarChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      setTempUserAvatar(imageUrl);
-    }
-  };
-
-  const handleSaveSettings = (e) => {
-    e.preventDefault();
-    setBrandTitle(tempBrandTitle);
-    setBrandSubtitle(tempBrandSubtitle);
-    setBrandLogo(tempBrandLogo);
-    setUserData({ name: tempName, role: tempRole });
-    setUserAvatar(tempUserAvatar);
-    setIsSettingsOpen(false);
-  };
 
   // Daftar bulan yang dihitung untuk pendapatan tahunan (Januari s.d. Oktober)
   const allowedMonthsForYearly = [
@@ -950,16 +924,24 @@ export default function AkuntansiMarketingView({
     <div className="min-h-screen bg-[#f7f5ed] flex text-[#1c2826] font-sans">
       
       {/* SIDEBAR */}
-      <aside className="w-[260px] bg-[#1b4332] text-white flex flex-col justify-between shrink-0 p-[20px] select-none">
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-[260px] bg-[#1b4332] text-white flex flex-col justify-between shrink-0 p-[20px] select-none transform transition-transform duration-200 ease-out lg:static lg:translate-x-0 ${
+          isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <div>
           <div className="flex items-center gap-[10px] pb-5 border-b border-white/10 mb-5">
-            <div className="w-[34px] h-[34px] rounded-[10px] bg-[#2f6850] flex items-center justify-center text-white shrink-0 overflow-hidden">
-              {brandLogo ? (
-                <img src={brandLogo} alt="Logo" className="w-full h-full object-cover" />
-              ) : (
-                <Leaf className="w-[19px] h-[19px]" />
-              )}
-            </div>
+          <div className="w-[34px] h-[34px] rounded-[10px] bg-white flex items-center justify-center text-white shrink-0 overflow-hidden">
+  {companyLogoUrl ? (
+    <img
+      src={companyLogoUrl}
+      alt="Logo perusahaan"
+      className="w-full h-full object-contain"
+    />
+  ) : (
+    <Leaf className="w-[19px] h-[19px] text-[#2f6850]" />
+  )}
+</div>
             <div>
               <h1 className="font-bold text-[15px] leading-tight m-0 text-white">
                 {brandTitle.includes('Market') ? (
@@ -979,7 +961,7 @@ export default function AkuntansiMarketingView({
               <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#8c9087] px-2 mb-2">MENU UTAMA</p>
               <div className="flex flex-col gap-1">
                 <button
-                  onClick={() => setActiveMenu('dashboard')}
+                  onClick={() => { setActiveMenu('dashboard'); setIsMobileSidebarOpen(false) }}
                   className={`w-full flex items-center gap-[10px] px-3 py-2.5 rounded-[8px] text-left border-none cursor-pointer transition-colors ${
                     activeMenu === 'dashboard'
                       ? 'bg-[#2f6850] text-white font-semibold'
@@ -990,7 +972,7 @@ export default function AkuntansiMarketingView({
                   <span className="text-xs">Dashboard Utama</span>
                 </button>
                 <button
-                  onClick={() => setActiveMenu('sheets')}
+                  onClick={() => { setActiveMenu('sheets'); setIsMobileSidebarOpen(false) }}
                   className={`w-full flex items-center gap-[10px] px-3 py-2.5 rounded-[8px] text-left border-none cursor-pointer transition-colors ${
                     activeMenu === 'sheets'
                       ? 'bg-[#2f6850] text-white font-semibold'
@@ -1006,28 +988,15 @@ export default function AkuntansiMarketingView({
         </div>
 
         <div className="border-t border-white/10 pt-4 flex flex-col gap-3">
-          <button 
+          <button
             onClick={() => setIsSettingsOpen(true)}
             className="flex items-center gap-2 text-xs text-white/70 bg-transparent border-none cursor-pointer px-2 hover:text-white transition-colors text-left"
           >
             <Settings className="w-[15px] h-[15px]" /> Pengaturan
           </button>
-          
+
           <div className="flex items-center justify-between bg-white/5 p-2.5 rounded-[10px] border border-white/5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-[30px] h-[30px] rounded-full bg-[#2f6850] text-white text-xs font-bold flex items-center justify-center shrink-0 overflow-hidden">
-                {userAvatar ? (
-                  <img src={userAvatar} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  getInitial(userData.name)
-                )}
-              </div>
-              <div>
-                <p className="text-xs font-semibold m-0 leading-none text-white">{userData.name}</p>
-                <p className="text-[10px] text-[#8c9087] m-0 mt-0.5">{userData.role}</p>
-              </div>
-            </div>
-            
+            <HeaderUserProfile fallbackUser={user} compact dark />
             <button
               onClick={handleLogout}
               className="border-none bg-red-500/20 text-red-300 p-1.5 rounded-[6px] cursor-pointer flex items-center justify-center hover:bg-red-500/30 transition-colors"
@@ -1039,40 +1008,61 @@ export default function AkuntansiMarketingView({
         </div>
       </aside>
 
+      {isMobileSidebarOpen && (
+        <button
+          type="button"
+          aria-label="Tutup menu"
+          onClick={() => setIsMobileSidebarOpen(false)}
+          className="fixed inset-0 z-40 bg-black/30 lg:hidden border-none cursor-pointer"
+        />
+      )}
+
       {/* MAIN CONTENT AREA */}
       <main className="flex-1 flex flex-col min-w-0">
         
         {/* Topbar Navigation */}
-        <header className="h-[60px] bg-white border-b border-[#e9e5d9] flex items-center justify-between px-8 text-xs shrink-0">
-          <div className="flex items-center gap-2 text-[#8c9087]">
+        <header className="h-[60px] bg-white border-b border-[#e9e5d9] flex items-center justify-between px-4 sm:px-8 text-xs shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              type="button"
+              aria-label="Buka menu"
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="lg:hidden w-9 h-9 rounded-[9px] border border-[#e9e5d9] bg-white flex items-center justify-center text-[#2f6850] cursor-pointer shrink-0 hover:bg-[#f7f5ed]"
+            >
+              <Menu className="w-[17px] h-[17px]" />
+            </button>
+
+            <div className="flex items-center gap-2 text-[#8c9087] min-w-0">
             <span className="text-[10px] font-bold tracking-wider uppercase">WORKSPACE</span>
             <span>/</span>
             <span className="font-bold text-[#1c2826] text-[11px]">
               {activeMenu === 'dashboard' ? 'DASHBOARD UTAMA' : `CRUD SHEET: ${activeSheetName.toUpperCase()}`}
             </span>
+            </div>
           </div>
-          <div className="flex items-center gap-4 text-[#8c9087]">
+          <div className="flex items-center gap-2 sm:gap-4 text-[#8c9087]">
             <span className="bg-[#f7f5ed] border border-[#e9e5d9] px-3 py-1 rounded-full text-[11px] font-medium text-[#1c2826]">
               {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </span>
             <button className="relative bg-transparent border-none text-[#8c9087] cursor-pointer hover:text-[#1c2826]">
               <Bell className="w-[18px] h-[18px]" />
             </button>
+            <HeaderUserProfile fallbackUser={user} />
           </div>
         </header>
 
         {/* CONTENT BODY */}
-        <div className="p-8 flex-1 overflow-y-auto">
+        <div className="p-4 sm:p-8 flex-1 overflow-y-auto">
           
           {activeMenu === 'dashboard' ? (
             /* ================= VIEW: DASHBOARD UTAMA ================= */
-            <div className="max-w-[1300px] mx-auto" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+            <div className="max-w-[1300px] mx-auto min-w-0" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
               
               <div>
                 <span className="text-[10px] font-bold tracking-widest uppercase text-[#2f6850]">
                   {brandTitle.toUpperCase()}
                 </span>
-                <h1 className="text-[24px] font-bold text-[#1c2826] tracking-tight m-0 mt-0.5">
+                <h1 className="text-[20px] sm:text-[24px] font-bold text-[#1c2826] tracking-tight m-0 mt-0.5">
                   Akuntansi & Marketing
                 </h1>
                 <p className="text-xs text-[#8c9087] m-0 mt-0.5">
@@ -1081,10 +1071,10 @@ export default function AkuntansiMarketingView({
               </div>
 
               {/* CARD RINGKASAN PENDAPATAN */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div className="flex flex-col gap-5 min-w-0">
                 
                 {/* CARD 1: PENDAPATAN MINGGUAN (BULAN INI) */}
-                <div className="bg-white p-6 rounded-[16px] border border-[#e9e5d9] shadow-sm" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div className="bg-white p-4 sm:p-6 rounded-[16px] border border-[#e9e5d9] shadow-sm min-w-0" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
                     <div>
                       <span className="text-[11px] font-bold uppercase tracking-wider text-[#8c9087]">Total Pendapatan Bulan Ini (Mingguan)</span>
@@ -1137,7 +1127,7 @@ export default function AkuntansiMarketingView({
                     <span className="text-[11px] font-bold uppercase tracking-wider text-[#1c2826] block mb-3">
                       Tambah / Update Data Minggu
                     </span>
-                    <form onSubmit={handleSaveWeeklyIncome} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                    <form onSubmit={handleSaveWeeklyIncome} className="flex flex-col sm:flex-row gap-[10px] flex-wrap items-stretch sm:items-end">
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <label className="text-[10px] font-bold uppercase tracking-wider text-[#8c9087]">Minggu</label>
                         <select
@@ -1157,8 +1147,7 @@ export default function AkuntansiMarketingView({
                           value={newWeekNominal}
                           onChange={(e) => setNewWeekNominal(formatDisplayNumber(e.target.value))}
                           placeholder="Contoh: 9.000.000"
-                          className="text-xs border border-[#e9e5d9] rounded-[8px] px-3 py-2 bg-white"
-                          style={{ minWidth: '180px' }}
+                           className="text-xs border border-[#e9e5d9] rounded-[8px] px-3 py-2 bg-white w-full sm:w-auto sm:min-w-[180px] min-w-0"
                           required
                         />
                       </div>
@@ -1174,7 +1163,7 @@ export default function AkuntansiMarketingView({
                 </div>
 
                 {/* CARD 2: REKAP BULANAN (JANUARI - OKTOBER) */}
-                <div className="bg-white p-6 rounded-[16px] border border-[#e9e5d9] shadow-sm" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div className="bg-white p-4 sm:p-6 rounded-[16px] border border-[#e9e5d9] shadow-sm min-w-0" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
                     <div>
                       <span className="text-[11px] font-bold uppercase tracking-wider text-[#8c9087]">Total Pendapatan Tahun Ini (Januari - Oktober)</span>
@@ -1227,7 +1216,7 @@ export default function AkuntansiMarketingView({
                     <span className="text-[11px] font-bold uppercase tracking-wider text-[#1c2826] block mb-3">
                       Tambah / Update Data Bulan
                     </span>
-                    <form onSubmit={handleSaveMonthlyIncome} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                    <form onSubmit={handleSaveMonthlyIncome} className="flex flex-col sm:flex-row gap-[10px] flex-wrap items-stretch sm:items-end">
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <label className="text-[10px] font-bold uppercase tracking-wider text-[#8c9087]">Bulan</label>
                         <select
@@ -1247,8 +1236,7 @@ export default function AkuntansiMarketingView({
                           value={newMonthNominal}
                           onChange={(e) => setNewMonthNominal(formatDisplayNumber(e.target.value))}
                           placeholder="Contoh: 250.000.000"
-                          className="text-xs border border-[#e9e5d9] rounded-[8px] px-3 py-2 bg-white"
-                          style={{ minWidth: '180px' }}
+                          className="text-xs border border-[#e9e5d9] rounded-[8px] px-3 py-2 bg-white w-full sm:w-auto sm:min-w-[180px] min-w-0"
                           required
                         />
                       </div>
@@ -1264,103 +1252,62 @@ export default function AkuntansiMarketingView({
                 </div>
 
               </div>
+              <div className="mb-6">
+              <ManagerMessageBox />
+              </div>
 
-              {/* 3 KOLOM: CHECKLIST, ENDORSE, PINTASAN SHEET */}
-              <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                
-                {/* CHECKLIST JOBDESK */}
-                <div className="bg-white rounded-[16px] border border-[#e9e5d9] p-6 shadow-sm space-y-6" style={{ flex: '1 1 360px' }}>
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                      <div>
-                        <h2 className="text-[15px] font-bold text-[#1c2826] m-0" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <CheckSquare size={18} className="text-[#2f6850]" /> Checklist Jobdesk
-                        </h2>
-                        <p className="text-xs text-[#8c9087] m-0 mt-1">
-                          Progress {completedCount} dari {totalCount} tugas
-                        </p>
-                      </div>
-                      <span className="px-3 py-1 rounded-full text-[11px] font-bold text-[#2f6850] bg-[#e8f5e9]">
-                        {progressPercent}%
-                      </span>
-                    </div>
-
-                    <div className="w-full bg-[#f7f5ed] h-2 rounded-full overflow-hidden border border-[#e9e5d9]">
-                      <div 
-                        className="bg-[#2f6850] h-full transition-all duration-300 rounded-full" 
-                        style={{ width: `${progressPercent}%` }} 
-                      />
-                    </div>
+              {/* Tambahan: riwayat pesan milik akun Akuntansi & Marketing */}
+              <div className="mb-6">
+                <section className="bg-white rounded-[16px] border border-[#e9e5d9] p-4 sm:p-6 shadow-sm min-w-0">
+                  <div className="mb-5">
+                    <p className="text-[10px] font-bold tracking-[0.12em] uppercase text-[#8c9087] mb-1">
+                      RIWAYAT PESAN
+                    </p>
+                    <h2 className="text-[18px] font-bold text-[#1c2826] tracking-tight leading-snug m-0">
+                      Pesan Saya ke Manager PMS
+                    </h2>
+                    <p className="text-[11px] text-[#8c9087] m-0 mt-1">
+                      Hanya pesan yang dikirim oleh akun Akuntansi & Marketing ini yang ditampilkan.
+                    </p>
                   </div>
 
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                    {['Semua', 'Akuntansi', 'Operasional', 'Marketing'].map((tab) => (
-                      <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        className={`px-3 py-1.5 rounded-[8px] text-[11px] font-semibold transition cursor-pointer border ${
-                          activeTab === tab
-                            ? 'bg-[#2f6850] text-white border-[#2f6850]'
-                            : 'bg-[#f7f5ed] text-[#1c2826] border-[#e9e5d9] hover:bg-[#e9e5d9]'
-                        }`}
-                      >
-                        {tab}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
-                    {filteredJobdesks.length === 0 ? (
-                      <p className="text-xs text-center text-[#8c9087] py-6">Belum ada tugas.</p>
-                    ) : (
-                      filteredJobdesks.map((item) => (
-                        <div
-                          key={item.id}
-                          onClick={() => handleToggleJob(item.id)}
-                          className="p-3.5 rounded-[12px] border border-[#e9e5d9] hover:border-[#2f6850] transition bg-[#fdfcf7] cursor-pointer group"
-                          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-                            <div className="shrink-0">
-                              {item.completed ? (
-                                <CheckCircle2 size={18} className="text-[#2f6850] fill-[#2f6850] text-white" />
-                              ) : (
-                                <Circle size={18} className="text-[#8c9087] group-hover:text-[#1c2826]" />
-                              )}
-                            </div>
-                            <span className={`text-xs font-medium transition-colors ${
-                              item.completed ? 'line-through text-[#8c9087]' : 'text-[#1c2826]'
-                            }`}>
-                              {item.text}
+                  <div className="flex flex-col divide-y divide-[#e9e5d9]">
+                    {myManagerMessages.length > 0 ? (
+                      myManagerMessages.map((message) => (
+                        <div key={message.id} className="py-3 first:pt-0 last:pb-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-1">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#2f6850]/10 text-[#2f6850]">
+                              Akuntansi & Marketing
+                            </span>
+                            <span className="text-[11px] text-[#8c9087]">
+                              • {message.date || message.created_at || '—'}
                             </span>
                           </div>
-                          <span className="text-[10px] font-semibold text-[#8c9087] shrink-0">
-                            {item.category}
-                          </span>
+
+                          <p className="text-xs text-[#1c2826] m-0 leading-relaxed whitespace-pre-wrap">
+                            {message.content || message.message || ''}
+                          </p>
                         </div>
                       ))
+                    ) : (
+                      <div className="py-2 text-xs text-[#8c9087]">
+                        Belum ada pesan yang dikirim ke Manager PMS.
+                      </div>
                     )}
                   </div>
+                </section>
+              </div>
 
-                  <form onSubmit={handleAddTask} style={{ display: 'flex', gap: '8px', paddingTop: '4px' }}>
-                    <input
-                      type="text"
-                      placeholder="Tambah tugas cepat..."
-                      value={newTaskText}
-                      onChange={(e) => setNewTaskText(e.target.value)}
-                      className="flex-1 h-[38px] px-3 text-xs bg-[#fdfcf7] border border-[#e9e5d9] rounded-[10px] focus:outline-none focus:border-[#2f6850] transition placeholder:text-[#8c9087]"
-                    />
-                    <button
-                      type="submit"
-                      className="h-[38px] px-4 bg-[#2f6850] hover:bg-[#255340] text-white text-xs font-semibold rounded-[10px] flex items-center gap-1 transition shadow-sm cursor-pointer shrink-0 border-none"
-                    >
-                      <Plus size={14} /> Tambah
-                    </button>
-                  </form>
+              {/* 3 KOLOM: CHECKLIST, ENDORSE, PINTASAN SHEET */}
+              <div className="flex flex-col lg:flex-row gap-5 items-stretch lg:items-start">
+                
+                {/* CHECKLIST JOBDESK */}
+                <div style={{ flex: '1 1 360px' }}>
+                  <JobdeskInbox />
                 </div>
 
                 {/* MANAJEMEN ENDORSE */}
-                <div className="bg-white rounded-[16px] border border-[#e9e5d9] p-6 shadow-sm space-y-6" style={{ flex: '1 1 360px' }}>
+                <div className="bg-white rounded-[16px] border border-[#e9e5d9] p-4 sm:p-6 shadow-sm min-w-0 space-y-6" style={{ flex: '1 1 360px' }}>
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                       <div>
@@ -1521,7 +1468,7 @@ export default function AkuntansiMarketingView({
                 </div>
 
                 {/* PINTASAN SHEET & TABEL */}
-                <div className="bg-white rounded-[16px] border border-[#e9e5d9] p-6 shadow-sm space-y-4" style={{ flex: '1 1 340px' }}>
+                <div className="bg-white rounded-[16px] border border-[#e9e5d9] p-4 sm:p-6 shadow-sm min-w-0 space-y-4" style={{ flex: '1 1 340px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e9e5d9', paddingBottom: '14px' }}>
                     <div>
                       <h2 className="text-[15px] font-bold text-[#1c2826] m-0" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1557,9 +1504,9 @@ export default function AkuntansiMarketingView({
             </div>
           ) : (
             /* ================= VIEW: KELOLA SHEET (CRUD) ================= */
-            <div className="max-w-[1300px] mx-auto" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div className="max-w-[1300px] mx-auto min-w-0" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+              <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4">
                 <div>
                   <span className="text-[10px] font-bold tracking-widest uppercase text-[#2f6850]">
                     MANAJEMEN DATABASE SHEET
@@ -1862,114 +1809,11 @@ export default function AkuntansiMarketingView({
 
       </main>
 
-      {/* MODAL PENGATURAN HUB & PROFIL */}
-      {isSettingsOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl text-gray-800 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-bold mb-4">Pengaturan Hub, Logo & Profil</h2>
-            <form onSubmit={handleSaveSettings} className="space-y-4">
-              
-              {/* Ganti Logo / Foto Aroid Market */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Ganti Foto / Logo Aroid Market</label>
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-lg border border-gray-300 flex items-center justify-center overflow-hidden bg-gray-50 shrink-0">
-                    {tempBrandLogo ? (
-                      <img src={tempBrandLogo} alt="Preview Logo" className="w-full h-full object-cover" />
-                    ) : (
-                      <Leaf size={20} className="text-emerald-700" />
-                    )}
-                  </div>
-                  <input 
-                    type="file" 
-                    accept="image/*"
-                    onChange={handleBrandLogoChange}
-                    className="text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer w-full"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Nama Brand / Hub</label>
-                <input 
-                  type="text" 
-                  value={tempBrandTitle} 
-                  onChange={(e) => setTempBrandTitle(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Sub-judul Hub</label>
-                <input 
-                  type="text" 
-                  value={tempBrandSubtitle} 
-                  onChange={(e) => setTempBrandSubtitle(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <hr className="my-2 border-gray-200" />
-
-              {/* Ganti Foto Profil Admin */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Ganti Foto Profil Admin</label>
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full border border-gray-300 flex items-center justify-center overflow-hidden bg-emerald-800 text-white font-bold shrink-0">
-                    {tempUserAvatar ? (
-                      <img src={tempUserAvatar} alt="Preview Avatar" className="w-full h-full object-cover" />
-                    ) : (
-                      getInitial(tempName)
-                    )}
-                  </div>
-                  <input 
-                    type="file" 
-                    accept="image/*"
-                    onChange={handleUserAvatarChange}
-                    className="text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer w-full"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Nama Admin</label>
-                <input 
-                  type="text" 
-                  value={tempName} 
-                  onChange={(e) => setTempName(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Role / Jabatan</label>
-                <input 
-                  type="text" 
-                  value={tempRole} 
-                  onChange={(e) => setTempRole(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3">
-                <button 
-                  type="button" 
-                  onClick={() => setIsSettingsOpen(false)}
-                  className="px-4 py-2 rounded-lg bg-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-300 cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button 
-                  type="submit" 
-                  className="px-4 py-2 rounded-lg bg-emerald-600 text-xs font-semibold text-white hover:bg-emerald-700 cursor-pointer"
-                >
-                  Simpan Perubahan
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <ProfileSettingsModal
+        open={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        fallbackUser={user}
+      />
 
     </div>
   );

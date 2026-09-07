@@ -18,6 +18,7 @@ class OperationalCost extends Model
         'price',
         'subtotal',
         'note',
+        'recorded_by',
     ];
 
     protected function casts(): array

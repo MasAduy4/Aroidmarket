@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react'
+import JobdeskInbox from '@/Components/Shared/JobdeskInbox'
 import { Head, router, useForm } from '@inertiajs/react'
 import axios from 'axios'
+import ManagerMessageBox from '@/Components/Shared/ManagerMessageBox'
+import ProfileSettingsModal from '@/Components/Shared/ProfileSettingsModal';
+import HeaderUserProfile from '@/Components/Shared/HeaderUserProfile';
+import { useCurrentUser } from '@/Components/Shared/useCurrentUser';
 import {
   Boxes, Edit3, FileBarChart2, Filter, Leaf,
   PackageCheck, Plus, Search, Sprout, Tag, Warehouse, Barcode, Check, X, AlertTriangle, Trash2,
-  Bell, Settings, LogOut, ChevronDown, ShieldAlert
+  Bell, Settings, LogOut, ChevronDown, ShieldAlert, Menu
 } from 'lucide-react'
 
 /* ==========================================================================
@@ -75,7 +80,7 @@ function Field({ label, error, children, required }) {
 function ModalFrame({ title, subtitle, onClose, children }) {
   return (
     <div className="fixed inset-0 bg-black/40 grid place-items-center z-50 p-4 backdrop-blur-sm">
-      <div role="dialog" aria-modal="true" className="bg-white rounded-[16px] p-6 w-full max-w-2xl shadow-xl border border-[#e9e5d9] max-h-[90vh] overflow-y-auto">
+      <div role="dialog" aria-modal="true" className="bg-white rounded-[16px] p-4 sm:p-6 w-full max-w-2xl shadow-xl border border-[#e9e5d9] max-h-[90vh] overflow-y-auto overscroll-contain">
         <div className="flex items-center justify-between pb-4 border-b border-[#e9e5d9] mb-5">
           <div>
             <h2 className="text-[18px] font-bold text-[#1c2826] m-0">{title}</h2>
@@ -202,7 +207,7 @@ export function PlantModal({ open, plant, categories = [], onClose }) {
 
   return (
     <ModalFrame title={isEdit ? 'Edit Data Tanaman' : 'Tambah Tanaman Baru'} subtitle="Lengkapi detail inventori dan lokasi tanaman." onClose={onClose}>
-      <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2 text-xs">
+      <form onSubmit={submit} className="grid gap-4 grid-cols-1 sm:grid-cols-2 text-xs min-w-0">
         <Field label="Kategori" error={errors.plant_category_id} required>
           <div className="relative">
             <select className={selectStyle} value={data.plant_category_id} onChange={(e) => setData('plant_category_id', e.target.value)} required>
@@ -409,7 +414,7 @@ export function BarcodeModal({ open, onClose }) {
   return (
     <ModalFrame title="Validasi Barcode & Keluarkan" subtitle="Scan atau masukkan barcode untuk memvalidasi status tanaman." onClose={onClose}>
       <div className="flex flex-col gap-4 text-xs">
-        <form onSubmit={handleValidate} className="flex items-center gap-2 rounded-[10px] border border-[#e9e5d9] bg-[#fdfcf7] p-2">
+        <form onSubmit={handleValidate} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 rounded-[10px] border border-[#e9e5d9] bg-[#fdfcf7] p-2 min-w-0">
           <Barcode className="w-5 h-5 text-[#2f6850] shrink-0 ml-1" />
           <input
             autoFocus
@@ -418,7 +423,7 @@ export function BarcodeModal({ open, onClose }) {
             placeholder="Masukkan barcode tanaman lalu tekan Enter..."
             className="min-w-0 flex-1 bg-transparent text-xs outline-none text-[#1c2826] placeholder:text-[#8c9087]"
           />
-          <button type="submit" disabled={loading} className="h-[34px] px-3 bg-[#2f6850] text-white font-semibold rounded-[8px] text-xs border-none cursor-pointer hover:bg-[#255340] transition-colors">
+          <button type="submit" disabled={loading} className="h-[38px] sm:h-[34px] w-full sm:w-auto px-3 bg-[#2f6850] text-white font-semibold rounded-[8px] text-xs border-none cursor-pointer hover:bg-[#255340] transition-colors">
             {loading ? 'Cek...' : 'Periksa'}
           </button>
         </form>
@@ -445,7 +450,7 @@ export function BarcodeModal({ open, onClose }) {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs pt-3 border-t border-[#e9e5d9]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-3 border-t border-[#e9e5d9]">
               <div>
                 <p className="text-[#8c9087] text-[11px] m-0">Kondisi Kesehatan</p>
                 <p className={isHealthOk ? 'font-bold text-[#2f6850] m-0' : 'font-bold text-rose-700 m-0'}>
@@ -489,14 +494,14 @@ export function BarcodeModal({ open, onClose }) {
           </div>
         )}
 
-        <div className="flex justify-end gap-2 pt-2">
-          <button onClick={onClose} className="h-[36px] px-4 rounded-[8px] border border-[#e9e5d9] bg-white text-xs font-semibold cursor-pointer hover:bg-[#f7f5ed] text-[#1c2826]">
+        <div className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-2">
+          <button onClick={onClose} className="h-[38px] sm:h-[36px] w-full sm:w-auto px-4 rounded-[8px] border border-[#e9e5d9] bg-white text-xs font-semibold cursor-pointer hover:bg-[#f7f5ed] text-[#1c2826]">
             Tutup
           </button>
           
           {/* Tombol Tandai Sold HANYA MUNCUL jika status === 'available' */}
           {plant && plantStatus === 'available' && (
-            <button onClick={() => handleMarkSold(plant.id)} className="h-[36px] px-4 rounded-[8px] border-none bg-[#2f6850] text-white text-xs font-semibold cursor-pointer hover:bg-[#255340] transition-colors">
+            <button onClick={() => handleMarkSold(plant.id)} className="h-[38px] sm:h-[36px] w-full sm:w-auto px-4 rounded-[8px] border-none bg-[#2f6850] text-white text-xs font-semibold cursor-pointer hover:bg-[#255340] transition-colors">
               Tandai Sold
             </button>
           )}
@@ -509,7 +514,16 @@ export function BarcodeModal({ open, onClose }) {
 /* ==========================================================================
    3. MAIN DASHBOARD PAGE
    ========================================================================== */
-export default function PjGreenhouse({ plants = { data: [], links: [] }, categories = [], stats = {}, filters = {} }) {
+export default function PjGreenhouse({ plants = { data: [], links: [] }, categories = [], stats = {}, filters = {}, managerMessages = [] }) {
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
+  const { user, companyLogoUrl } = useCurrentUser()
+
+  const myManagerMessages = Array.isArray(managerMessages)
+    ? managerMessages
+    : (managerMessages?.data || [])
+
+
   const [activeMenu, setActiveMenu] = useState('inventory')
   const [search, setSearch] = useState(filters.search || '')
   const [status, setStatus] = useState(filters.status || '')
@@ -568,13 +582,25 @@ export default function PjGreenhouse({ plants = { data: [], links: [] }, categor
 
       <div className="min-h-screen bg-[#f7f5ed] flex text-[#1c2826] font-sans">
         {/* SIDEBAR */}
-        <aside className="w-[260px] bg-[#1b4332] text-white flex flex-col justify-between shrink-0 p-[20px] select-none">
+        <aside
+          className={`fixed inset-y-0 left-0 z-50 w-[260px] bg-[#1b4332] text-white flex flex-col justify-between shrink-0 p-[20px] select-none transform transition-transform duration-200 ease-out lg:static lg:translate-x-0 ${
+            isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
           <div>
             {/* Brand Header */}
             <div className="flex items-center gap-[10px] pb-5 border-b border-white/10 mb-5">
-              <div className="w-[34px] h-[34px] rounded-[10px] bg-[#2f6850] flex items-center justify-center text-white shrink-0">
-                <Leaf className="w-[19px] h-[19px]" />
-              </div>
+            <div className="w-[34px] h-[34px] rounded-[10px] bg-white flex items-center justify-center text-white shrink-0 overflow-hidden">
+  {companyLogoUrl ? (
+    <img
+      src={companyLogoUrl}
+      alt="Logo perusahaan"
+      className="w-full h-full object-contain"
+    />
+  ) : (
+    <Leaf className="w-[19px] h-[19px] text-[#2f6850]" />
+  )}
+</div>
               <div>
                 <h1 className="font-bold text-[15px] leading-tight m-0 text-white">
                   Aroid<span className="text-[#8c9087] font-normal">Market</span>
@@ -600,7 +626,7 @@ export default function PjGreenhouse({ plants = { data: [], links: [] }, categor
                 <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#8c9087] px-2 mb-2">OPERASIONAL GREENHOUSE</p>
                 <div className="flex flex-col gap-1">
                   <button
-                    onClick={() => setActiveMenu('inventory')}
+                    onClick={() => { setActiveMenu('inventory'); setIsMobileSidebarOpen(false) }}
                     className={`w-full flex items-center gap-[10px] px-3 py-2.5 rounded-[8px] text-left border-none cursor-pointer transition-colors ${
                       activeMenu === 'inventory'
                         ? 'bg-[#2f6850] text-white font-semibold'
@@ -617,20 +643,19 @@ export default function PjGreenhouse({ plants = { data: [], links: [] }, categor
 
           {/* Sidebar Footer */}
           <div className="border-t border-white/10 pt-4 flex flex-col gap-3">
-            <button className="flex items-center gap-2 text-xs text-white/70 bg-transparent border-none cursor-pointer px-2 hover:text-white transition-colors">
+            <button
+              type="button"
+              onClick={() => setIsSettingsOpen(true)}
+              className="flex items-center gap-2 text-xs text-white/70 bg-transparent border-none cursor-pointer px-2 hover:text-white transition-colors text-left"
+            >
               <Settings className="w-[15px] h-[15px]" /> Pengaturan
             </button>
-            
+
             <div className="flex items-center justify-between bg-white/5 p-2.5 rounded-[10px] border border-white/5">
-              <div className="flex items-center gap-2.5">
-                <div className="w-[30px] h-[30px] rounded-full bg-[#2f6850] text-white text-xs font-bold flex items-center justify-center shrink-0">GH</div>
-                <div>
-                  <p className="text-xs font-semibold m-0 leading-none text-white">Greenhouse Lead</p>
-                  <p className="text-[10px] text-[#8c9087] m-0 mt-0.5">Aroid Market</p>
-                </div>
-              </div>
-              
+              <HeaderUserProfile fallbackUser={user} compact dark />
+
               <button
+                type="button"
                 onClick={handleLogout}
                 className="border-none bg-red-500/20 text-red-300 p-1.5 rounded-[6px] cursor-pointer flex items-center justify-center hover:bg-red-500/30 transition-colors"
                 title="Logout"
@@ -639,19 +664,39 @@ export default function PjGreenhouse({ plants = { data: [], links: [] }, categor
               </button>
             </div>
           </div>
+
         </aside>
+
+        {isMobileSidebarOpen && (
+          <button
+            type="button"
+            aria-label="Tutup menu"
+            onClick={() => setIsMobileSidebarOpen(false)}
+            className="fixed inset-0 z-40 bg-black/30 lg:hidden border-none cursor-pointer"
+          />
+        )}
 
         {/* MAIN CONTENT AREA */}
         <main className="flex-1 flex flex-col min-w-0">
           {/* Topbar Navigation */}
-          <header className="h-[60px] bg-white border-b border-[#e9e5d9] flex items-center justify-between px-8 text-xs shrink-0">
-            <div className="flex items-center gap-2 text-[#8c9087]">
+          <header className="h-[60px] bg-white border-b border-[#e9e5d9] flex items-center justify-between px-4 sm:px-8 text-xs shrink-0">
+            <div className="flex items-center gap-2 text-[#8c9087] min-w-0">
+              <button
+                type="button"
+                aria-label="Buka menu"
+                onClick={() => setIsMobileSidebarOpen(true)}
+                className="lg:hidden w-9 h-9 rounded-[9px] border border-[#e9e5d9] bg-white flex items-center justify-center text-[#2f6850] cursor-pointer shrink-0 hover:bg-[#f7f5ed]"
+              >
+                <Menu className="w-[17px] h-[17px]" />
+              </button>
+              <div className="flex items-center gap-2 min-w-0">
               <span className="text-[10px] font-bold tracking-wider uppercase">WORKSPACE</span>
               <span>/</span>
-              <span className="font-bold text-[#1c2826] text-[11px]">PJ GREENHOUSE</span>
+              <span className="font-bold text-[#1c2826] text-[11px] whitespace-nowrap">PJ GREENHOUSE</span>
+              </div>
             </div>
-            <div className="flex items-center gap-4 text-[#8c9087]">
-              <span className="bg-[#f7f5ed] border border-[#e9e5d9] px-3 py-1 rounded-full text-[11px] font-medium text-[#1c2826]">
+            <div className="flex items-center gap-2 sm:gap-4 text-[#8c9087] min-w-0">
+              <span className="hidden sm:inline bg-[#f7f5ed] border border-[#e9e5d9] px-3 py-1 rounded-full text-[11px] font-medium text-[#1c2826] whitespace-nowrap">
                 {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </span>
               <button className="relative bg-transparent border-none text-[#8c9087] cursor-pointer hover:text-[#1c2826]">
@@ -660,41 +705,91 @@ export default function PjGreenhouse({ plants = { data: [], links: [] }, categor
             </div>
           </header>
 
-          <div className="p-8 flex-1 overflow-y-auto">
-            {/* Header Title Banner */}
-            <div className="flex items-end justify-between mb-6">
+          <div className="p-4 sm:p-6 lg:p-8 flex-1 overflow-y-auto min-w-0">
+            <div className="max-w-[1400px] mx-auto min-w-0">
+              {/* Header Title Banner */}
+              <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#d96b27] flex items-center gap-1.5 m-0 mb-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#d96b27]" />
                   OPERASIONAL GREENHOUSE
                 </p>
-                <h1 className="text-[24px] font-bold text-[#1c2826] m-0">Inventory Tanaman</h1>
+                <h1 className="text-[22px] sm:text-[24px] font-bold text-[#1c2826] m-0">Inventory Tanaman</h1>
                 <p className="text-xs text-[#8c9087] m-0 mt-1">Pantau stok, kondisi, dan status tanaman Aroid Market secara real-time.</p>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                 <button
                   onClick={() => setBarcodeOpen(true)}
-                  className="h-[38px] bg-white border border-[#e9e5d9] text-[#1c2826] font-semibold rounded-[10px] text-xs px-3.5 flex items-center gap-2 cursor-pointer hover:bg-[#f7f5ed] transition-colors shadow-sm"
+                  className="h-[40px] sm:h-[38px] w-full sm:w-auto bg-white border border-[#e9e5d9] text-[#1c2826] font-semibold rounded-[10px] text-xs px-3.5 flex items-center justify-center sm:justify-start gap-2 cursor-pointer hover:bg-[#f7f5ed] transition-colors shadow-sm"
                 >
                   <Tag className="w-4 h-4 text-[#2f6850]" /> Validasi Barcode
                 </button>
                 <button
                   onClick={() => setPlantModal({ open: true, plant: null })}
-                  className="h-[38px] bg-[#2f6850] text-white font-semibold rounded-[10px] text-xs px-3.5 flex items-center gap-2 border-none cursor-pointer hover:bg-[#255340] active:scale-[0.99] transition-all shadow-sm"
+                  className="h-[40px] sm:h-[38px] w-full sm:w-auto bg-[#2f6850] text-white font-semibold rounded-[10px] text-xs px-3.5 flex items-center justify-center sm:justify-start gap-2 border-none cursor-pointer hover:bg-[#255340] active:scale-[0.99] transition-all shadow-sm"
                 >
                   <Plus className="w-4 h-4" /> Tambah Tanaman
                 </button>
               </div>
             </div>
 
+            <div className="mb-6 min-w-0">
+              <JobdeskInbox />
+            </div>
+            <div className="mb-6 min-w-0">
+              <ManagerMessageBox />
+            </div>
+
+            {/* Tambahan: riwayat pesan milik akun PJ Greenhouse */}
+            <div className="mb-6">
+              <section className="bg-white rounded-[16px] border border-[#e9e5d9] p-4 sm:p-6 shadow-sm min-w-0">
+                <div className="mb-5">
+                  <p className="text-[10px] font-bold tracking-[0.12em] uppercase text-[#8c9087] mb-1">
+                    RIWAYAT PESAN
+                  </p>
+                  <h2 className="text-[18px] font-bold text-[#1c2826] tracking-tight leading-snug m-0">
+                    Pesan Saya ke Manager PMS
+                  </h2>
+                  <p className="text-[11px] text-[#8c9087] m-0 mt-1">
+                    Hanya pesan yang dikirim oleh akun PJ Greenhouse ini yang ditampilkan.
+                  </p>
+                </div>
+
+                <div className="flex flex-col divide-y divide-[#e9e5d9]">
+                  {myManagerMessages.length > 0 ? (
+                    myManagerMessages.map((message) => (
+                      <div key={message.id} className="py-3 first:pt-0 last:pb-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#2f6850]/10 text-[#2f6850]">
+                            PJ Greenhouse
+                          </span>
+                          <span className="text-[11px] text-[#8c9087]">
+                            • {message.date || message.created_at || '—'}
+                          </span>
+                        </div>
+
+                        <p className="text-xs text-[#1c2826] m-0 leading-relaxed whitespace-pre-wrap">
+                          {message.content || message.message || ''}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="py-2 text-xs text-[#8c9087]">
+                      Belum ada pesan yang dikirim ke Manager PMS.
+                    </div>
+                  )}
+                </div>
+              </section>
+            </div>
+
             {/* KPI CARDS */}
-            <div className="grid grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-6">
               <div className="bg-white border border-[#e9e5d9] rounded-[16px] p-4 shadow-sm flex items-start justify-between">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#8c9087] m-0">TOTAL TANAMAN</p>
-                  <p className="text-[22px] font-bold text-[#1c2826] mt-1 m-0">{stats.total_plants || 0}</p>
+                  <p className="text-[22px] font-bold text-[#1c2826] mt-1 m-0 whitespace-nowrap overflow-x-auto max-w-full">{stats.total_plants || 0}</p>
                   <p className="text-[11px] text-[#8c9087] mt-1 m-0">Total unit fisik</p>
                 </div>
                 <div className="w-9 h-9 rounded-[10px] bg-[#f7f5ed] text-[#1c2826] flex items-center justify-center shrink-0">
@@ -705,7 +800,7 @@ export default function PjGreenhouse({ plants = { data: [], links: [] }, categor
               <div className="bg-white border border-[#e9e5d9] rounded-[16px] p-4 shadow-sm flex items-start justify-between">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#2f6850] m-0">AVAILABLE</p>
-                  <p className="text-[22px] font-bold text-[#2f6850] mt-1 m-0">{stats.available_count || 0}</p>
+                  <p className="text-[22px] font-bold text-[#2f6850] mt-1 m-0 whitespace-nowrap overflow-x-auto max-w-full">{stats.available_count || 0}</p>
                   <p className="text-[11px] text-[#8c9087] mt-1 m-0">Siap untuk dijual</p>
                 </div>
                 <div className="w-9 h-9 rounded-[10px] bg-[#e8f5e9] text-[#2f6850] flex items-center justify-center shrink-0">
@@ -716,7 +811,7 @@ export default function PjGreenhouse({ plants = { data: [], links: [] }, categor
               <div className="bg-white border border-[#e9e5d9] rounded-[16px] p-4 shadow-sm flex items-start justify-between">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#8c9087] m-0">SOLD</p>
-                  <p className="text-[22px] font-bold text-[#1c2826] mt-1 m-0">{stats.sold_count || 0}</p>
+                  <p className="text-[22px] font-bold text-[#1c2826] mt-1 m-0 whitespace-nowrap overflow-x-auto max-w-full">{stats.sold_count || 0}</p>
                   <p className="text-[11px] text-[#8c9087] mt-1 m-0">Sudah keluar/terjual</p>
                 </div>
                 <div className="w-9 h-9 rounded-[10px] bg-[#f7f5ed] text-[#8c9087] flex items-center justify-center shrink-0">
@@ -727,7 +822,7 @@ export default function PjGreenhouse({ plants = { data: [], links: [] }, categor
               <div className="bg-white border border-[#e9e5d9] rounded-[16px] p-4 shadow-sm flex items-start justify-between">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#d96b27] m-0">PERLU PERHATIAN</p>
-                  <p className="text-[22px] font-bold text-[#d96b27] mt-1 m-0">{stats.need_attention || 0}</p>
+                  <p className="text-[22px] font-bold text-[#d96b27] mt-1 m-0 whitespace-nowrap overflow-x-auto max-w-full">{stats.need_attention || 0}</p>
                   <p className="text-[11px] text-[#8c9087] mt-1 m-0">Kondisi tidak sehat</p>
                 </div>
                 <div className="w-9 h-9 rounded-[10px] bg-[#fff3e0] text-[#d96b27] flex items-center justify-center shrink-0">
@@ -739,7 +834,7 @@ export default function PjGreenhouse({ plants = { data: [], links: [] }, categor
             {/* INVENTORY TABLE */}
             <section className="bg-white rounded-[16px] border border-[#e9e5d9] shadow-sm overflow-hidden flex flex-col justify-between">
               <div>
-                <div className="p-[20px_24px] border-b border-[#e9e5d9] flex flex-wrap items-center justify-between gap-3 bg-[#fdfcf7]">
+                <div className="p-4 sm:p-[20px_24px] border-b border-[#e9e5d9] flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-[#fdfcf7]">
                   <div>
                     <p className="text-[10px] font-bold tracking-[0.12em] uppercase text-[#8c9087] mb-1">DAFTAR INVENTORI</p>
                     <div className="flex items-center gap-2">
@@ -750,8 +845,8 @@ export default function PjGreenhouse({ plants = { data: [], links: [] }, categor
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className="flex items-center gap-2 bg-white border border-[#e9e5d9] rounded-[8px] px-[10px] h-[36px] text-[#8c9087] w-[220px] focus-within:border-[#2f6850]">
+                  <div className="flex items-stretch sm:items-center gap-2 flex-wrap w-full lg:w-auto">
+                    <div className="flex items-center gap-2 bg-white border border-[#e9e5d9] rounded-[8px] px-[10px] h-[38px] sm:h-[36px] text-[#8c9087] w-full sm:w-[220px] min-w-0 focus-within:border-[#2f6850]">
                       <Search className="w-[14px] h-[14px] shrink-0" />
                       <input
                         value={search}
@@ -766,7 +861,7 @@ export default function PjGreenhouse({ plants = { data: [], links: [] }, categor
                       <select
                         value={status}
                         onChange={handleStatusChange}
-                        className="h-[36px] bg-white border border-[#e9e5d9] rounded-[8px] pl-[10px] pr-[28px] text-xs font-medium text-[#1c2826] outline-none appearance-none cursor-pointer focus:border-[#2f6850] capitalize"
+                        className="h-[38px] sm:h-[36px] w-full sm:w-auto bg-white border border-[#e9e5d9] rounded-[8px] pl-[10px] pr-[28px] text-xs font-medium text-[#1c2826] outline-none appearance-none cursor-pointer focus:border-[#2f6850] capitalize"
                       >
                         <option value="">Semua Status</option>
                         <option value="available">Available</option>
@@ -780,7 +875,7 @@ export default function PjGreenhouse({ plants = { data: [], links: [] }, categor
                       <select
                         value={health}
                         onChange={handleHealthChange}
-                        className="h-[36px] bg-white border border-[#e9e5d9] rounded-[8px] pl-[10px] pr-[28px] text-xs font-medium text-[#1c2826] outline-none appearance-none cursor-pointer focus:border-[#2f6850] capitalize"
+                        className="h-[38px] sm:h-[36px] w-full sm:w-auto bg-white border border-[#e9e5d9] rounded-[8px] pl-[10px] pr-[28px] text-xs font-medium text-[#1c2826] outline-none appearance-none cursor-pointer focus:border-[#2f6850] capitalize"
                       >
                         <option value="">Semua Kondisi</option>
                         <option value="sehat">Sehat</option>
@@ -791,8 +886,8 @@ export default function PjGreenhouse({ plants = { data: [], links: [] }, categor
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
+                <div className="overflow-x-auto overscroll-x-contain">
+                  <table className="w-full min-w-[860px] text-left border-collapse">
                     <thead>
                       <tr className="bg-[#f7f5ed] border-b border-[#e9e5d9] text-[10px] uppercase tracking-[0.08em] font-bold text-[#8c9087]">
                         <th className="p-[12px_20px]">TANAMAN</th>
@@ -867,7 +962,7 @@ export default function PjGreenhouse({ plants = { data: [], links: [] }, categor
 
               {/* PAGINATION */}
               {plants.links && plants.links.length > 3 && (
-                <div className="p-[14px_24px] border-t border-[#e9e5d9] bg-[#fdfcf7] flex items-center justify-between text-xs text-[#8c9087]">
+                <div className="p-[14px_16px] sm:p-[14px_24px] border-t border-[#e9e5d9] bg-[#fdfcf7] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs text-[#8c9087]">
                   <span>
                     Halaman <strong className="text-[#1c2826] font-semibold">{plants.current_page}</strong> dari <strong className="text-[#1c2826] font-semibold">{plants.last_page}</strong>
                   </span>
@@ -891,6 +986,7 @@ export default function PjGreenhouse({ plants = { data: [], links: [] }, categor
                 </div>
               )}
             </section>
+            </div>
           </div>
         </main>
       </div>
@@ -898,6 +994,11 @@ export default function PjGreenhouse({ plants = { data: [], links: [] }, categor
       {/* MODALS */}
       <PlantModal open={plantModal.open} plant={plantModal.plant} categories={categories} onClose={() => setPlantModal({ open: false, plant: null })} />
       <BarcodeModal open={barcodeOpen} onClose={() => setBarcodeOpen(false)} />
+      <ProfileSettingsModal
+        open={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        fallbackUser={user}
+      />
     </>
   )
 }

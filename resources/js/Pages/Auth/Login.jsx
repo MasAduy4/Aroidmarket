@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
-import { Leaf, Mail, Lock, LogIn, UserPlus, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Head, useForm } from '@inertiajs/react';
+import { Leaf, Mail, Lock, LogIn, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import AOS from 'aos';
 import 'aos/dist/aos.css';
 
@@ -32,7 +32,7 @@ export default function Login() {
 
   return ( 
     <>
-      <Head title="Masuk — OptimusFarm" />
+      <Head title="Masuk — AroidMarket" />
       <div className="min-h-screen grid lg:grid-cols-2 bg-[#f8f7f2] text-emerald-950 overflow-hidden">
         
         {/* Panel Kiri dengan Latar Belakang Gambar & Animasi Fade-Right */}
@@ -42,7 +42,7 @@ export default function Login() {
           style={{ backgroundImage: `url('${bgImageUrl}')` }}
         >
           {/* Overlay Gradient agar Teks dan Elemen Lain Tetap Jelas */}
-          <div className="absolute inset-0 bg-gradient-to-t from-emerald-950/95 via-emerald-900/80 to-emerald-950/70" />
+          <div className="absolute inset-0 z-0 bg-gradient-to-t from-emerald-950/95 via-emerald-900/80 to-emerald-950/70" />
 
           {/* Glow Effect Decorative */}
           <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-amber-400/10 blur-3xl pointer-events-none" />
@@ -50,15 +50,15 @@ export default function Login() {
 
           {/* Logo & Brand Name */}
           <div className="flex items-center gap-3 relative z-10" data-aos="fade-down" data-aos-delay="200">
-            <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-xl flex-shrink-0">
-              <img 
-                src="/favicon.ico" 
-                alt="OptimusFarm Logo" 
-                className="w-full h-full object-cover"
-              />
-            </div>
+          <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-xl flex-shrink-0 bg-white flex items-center justify-center relative z-20">
+  <img
+    src="/company/logo"
+    alt="Logo perusahaan"
+    className="w-full h-full object-contain bg-white"
+  />
+</div>
             <div className="font-[Sora,ui-sans-serif] font-bold text-2xl text-white">
-              Optimus<span className="text-amber-300">Farm</span>
+              Aroid<span className="text-amber-300">Market</span>
             </div>
           </div>
 
@@ -74,7 +74,7 @@ export default function Login() {
 
           {/* Footer Text */}
           <p className="text-xs text-emerald-300/80 relative z-10" data-aos="fade-up" data-aos-delay="400">
-            © {new Date().getFullYear()} OptimusFarm
+            © {new Date().getFullYear()} AroidMarket
           </p>
         </div>
 
@@ -90,7 +90,7 @@ export default function Login() {
           >
             <div className="mb-8">
               <h1 className="font-[Sora,ui-sans-serif] text-3xl font-bold tracking-tight">Selamat datang kembali</h1>
-              <p className="text-emerald-800/70 mt-2 text-sm">Masuk ke akun OptimusFarm kamu.</p>
+              <p className="text-emerald-800/70 mt-2 text-sm">Masuk ke akun AroidMarket kamu.</p>
             </div>
 
             {/* Input Email */}
@@ -174,17 +174,6 @@ export default function Login() {
               {processing ? 'Memproses…' : 'Masuk'}
             </button>
 
-            {/* Link ke Halaman Register */}
-            <div className="mt-6 text-center text-sm text-emerald-900/70">
-              Belum punya akun?{' '}
-              <Link 
-                href="/register" 
-                className="font-semibold text-emerald-800 hover:underline inline-flex items-center gap-1"
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                Daftar sekarang
-              </Link>
-            </div>
           </form>
         </div>
       </div>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreCsReportRequest;
 use App\Http\Requests\UpdateCsReportRequest;
 use App\Models\CsReport;
+use App\Models\ManagerMessage;
 use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Http\RedirectResponse;
@@ -18,8 +19,21 @@ class CustomerServiceController extends Controller
     {
         $reports = CsReport::latest()->get();
 
+        // Tambahan: Customer Service hanya menerima pesan Manager PMS
+        // yang memang dikirim oleh akun yang sedang login.
+        $managerMessages = ManagerMessage::where('user_id', auth()->id())
+            ->latest()
+            ->get()
+            ->map(fn (ManagerMessage $message) => [
+                'id' => $message->id,
+                'content' => $message->message,
+                'date' => optional($message->created_at)?->setTimezone('Asia/Jakarta')->format('d M Y, H:i'),
+            ])
+            ->values();
+
         return Inertia::render('CustomerService', [
             'reports' => $reports,
+            'managerMessages' => $managerMessages,
         ]);
     }
 

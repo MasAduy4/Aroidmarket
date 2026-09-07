@@ -8,6 +8,7 @@ use App\Http\Controllers\Concerns\ManagesAkuntansiSheets;
 use App\Models\WeeklyRecap;
 use App\Models\JobDesk;
 use App\Models\EndorseCandidate;
+use App\Models\ManagerMessage;
 
 class AkuntansiMarketingController extends Controller
 {
@@ -18,6 +19,17 @@ class AkuntansiMarketingController extends Controller
         $weeklyIncome = WeeklyRecap::all();
         $jobdesks = JobDesk::all();
         $endorseList = EndorseCandidate::all();
+
+        // Tambahan: hanya pesan yang dikirim oleh akun Akuntansi & Marketing ini.
+        $managerMessages = ManagerMessage::where('user_id', auth()->id())
+            ->latest()
+            ->get()
+            ->map(fn (ManagerMessage $message) => [
+                'id' => $message->id,
+                'content' => $message->message,
+                'date' => optional($message->created_at)?->setTimezone('Asia/Jakarta')->format('d M Y, H:i'),
+            ])
+            ->values();
 
         // 1. Perhitungan Pendapatan Bulanan (Minggu 1 - 4)
         $weeklyRecaps = WeeklyRecap::where('minggu', 'not like', 'Bulan %')->get();
@@ -67,6 +79,7 @@ class AkuntansiMarketingController extends Controller
                 'monthlyRevenueData' => $monthlyRevenueData,
                 'totalInfluencer'    => $endorseList->count(),
             ],
+            'managerMessages' => $managerMessages,
         ]);
     }
 

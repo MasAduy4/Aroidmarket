@@ -1,7 +1,12 @@
 'use client'
+import JobdeskInbox from '@/Components/Shared/JobdeskInbox'
 
 import { useMemo, useState, useEffect } from 'react'
 import { router, useForm } from '@inertiajs/react'
+import ProfileSettingsModal from '@/Components/Shared/ProfileSettingsModal';
+import HeaderUserProfile from '@/Components/Shared/HeaderUserProfile';
+import { useCurrentUser } from '@/Components/Shared/useCurrentUser';
+import ManagerMessageBox from '@/Components/Shared/ManagerMessageBox'
 
 import {
   Bell,
@@ -170,7 +175,7 @@ function CsForm({ allowedCategories, isEscalationMenu }) {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-[12px]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-[12px]">
           <div className="flex flex-col gap-[6px]">
             <label className="text-xs font-semibold text-[#1c2826]">
               Order ID <span className="text-red-500">*</span>
@@ -265,7 +270,7 @@ function CsTable({ reports, onStatusChange, onDelete, onUpdate, isEscalationMenu
   }
 
   return (
-    <section className="bg-white rounded-[16px] border border-[#e9e5d9] shadow-sm flex flex-col justify-between relative overflow-hidden">
+    <section className="bg-white rounded-[16px] border border-[#e9e5d9] shadow-sm flex flex-col justify-between relative overflow-hidden min-w-0">
       <div>
         <div className="p-[20px_24px] border-b border-[#e9e5d9] flex flex-wrap items-center justify-between gap-[12px] bg-[#fdfcf7]">
           <div>
@@ -282,12 +287,12 @@ function CsTable({ reports, onStatusChange, onDelete, onUpdate, isEscalationMenu
             </div>
           </div>
 
-          <div className="flex items-center gap-[8px] flex-wrap">
+          <div className="flex items-stretch sm:items-center gap-2 flex-wrap w-full lg:w-auto">
             <div className="relative">
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="h-[36px] bg-white border border-[#e9e5d9] rounded-[8px] pl-[10px] pr-[28px] text-xs font-medium text-[#1c2826] outline-none appearance-none cursor-pointer focus:border-[#2f6850]"
+                className="h-[36px] w-full sm:w-auto bg-white border border-[#e9e5d9] rounded-[8px] pl-[10px] pr-[28px] text-xs font-medium text-[#1c2826] outline-none appearance-none cursor-pointer focus:border-[#2f6850]"
               >
                 <option value="all">Semua Status</option>
                 <option value="open">Open</option>
@@ -301,7 +306,7 @@ function CsTable({ reports, onStatusChange, onDelete, onUpdate, isEscalationMenu
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="h-[36px] bg-white border border-[#e9e5d9] rounded-[8px] pl-[10px] pr-[28px] text-xs font-medium text-[#1c2826] outline-none appearance-none cursor-pointer max-w-[140px] truncate focus:border-[#2f6850]"
+                className="h-[36px] w-full sm:w-auto bg-white border border-[#e9e5d9] rounded-[8px] pl-[10px] pr-[28px] text-xs font-medium text-[#1c2826] outline-none appearance-none cursor-pointer max-w-full sm:max-w-[180px] truncate focus:border-[#2f6850]"
               >
                 <option value="all">Semua Kategori</option>
                 {categories.map((c) => (
@@ -311,7 +316,7 @@ function CsTable({ reports, onStatusChange, onDelete, onUpdate, isEscalationMenu
               <ChevronDown className="absolute right-[8px] top-[10px] w-[14px] h-[14px] text-[#8c9087] pointer-events-none" />
             </div>
 
-            <div className="flex items-center gap-[8px] bg-white border border-[#e9e5d9] rounded-[8px] px-[10px] h-[36px] text-[#8c9087] w-[160px] focus-within:border-[#2f6850]">
+            <div className="flex items-center gap-[8px] bg-white border border-[#e9e5d9] rounded-[8px] px-[10px] h-[36px] text-[#8c9087] w-full sm:w-[180px] min-w-0 focus-within:border-[#2f6850]">
               <Search className="w-[14px] h-[14px] shrink-0" />
               <input
                 value={searchTerm}
@@ -323,8 +328,8 @@ function CsTable({ reports, onStatusChange, onDelete, onUpdate, isEscalationMenu
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+        <div className="overflow-x-auto overscroll-x-contain">
+          <table className="w-full min-w-[760px] text-left border-collapse">
             <thead>
               <tr className="bg-[#f7f5ed] border-b border-[#e9e5d9] text-[10px] uppercase tracking-[0.08em] font-bold text-[#8c9087]">
                 <th className="p-[12px_20px]">KATEGORI</th>
@@ -438,7 +443,7 @@ function CsTable({ reports, onStatusChange, onDelete, onUpdate, isEscalationMenu
             </div>
 
             <div className="flex flex-col gap-[12px] text-xs">
-              <div className="grid grid-cols-2 gap-[8px] bg-[#f7f5ed] p-[12px] rounded-[10px]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-[8px] bg-[#f7f5ed] p-[12px] rounded-[10px]">
                 <div>
                   <span className="text-[#8c9087] text-[11px]">Order ID:</span>
                   <p className="font-bold m-[2px_0_0_0] text-[#2f6850] font-mono">{viewingReport.order_id ?? viewingReport.orderId ?? '—'}</p>
@@ -532,7 +537,16 @@ function CsTable({ reports, onStatusChange, onDelete, onUpdate, isEscalationMenu
   )
 }
 
-export default function CustomerService({ reports = [] }) {
+export default function CustomerService({ reports = [], managerMessages = [] }) {
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
+  const { user, companyLogoUrl } = useCurrentUser()
+
+  const myManagerMessages = Array.isArray(managerMessages)
+    ? managerMessages
+    : (managerMessages?.data || [])
+
+
   const [activeMenu, setActiveMenu] = useState('daily')
 
   const visibleCategories = useMemo(
@@ -591,13 +605,25 @@ export default function CustomerService({ reports = [] }) {
   return (
     <div className="min-h-screen bg-[#f7f5ed] flex text-[#1c2826] font-sans">
       {/* Sidebar Warna Dark Forest Green Sesuai Manager Dashboard */}
-      <aside className="w-[260px] bg-[#1b4332] text-white flex flex-col justify-between shrink-0 p-[20px] select-none">
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-[260px] bg-[#1b4332] text-white flex flex-col justify-between shrink-0 p-[20px] select-none transform transition-transform duration-200 ease-out lg:static lg:translate-x-0 ${
+          isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <div>
           {/* Brand Header */}
           <div className="flex items-center gap-[10px] pb-5 border-b border-white/10 mb-5">
-            <div className="w-[34px] h-[34px] rounded-[10px] bg-[#2f6850] flex items-center justify-center text-white shrink-0">
-              <Leaf className="w-[19px] h-[19px]" />
-            </div>
+          <div className="w-[34px] h-[34px] rounded-[10px] bg-white flex items-center justify-center text-white shrink-0 overflow-hidden">
+  {companyLogoUrl ? (
+    <img
+      src={companyLogoUrl}
+      alt="Logo perusahaan"
+      className="w-full h-full object-contain"
+    />
+  ) : (
+    <Leaf className="w-[19px] h-[19px] text-[#2f6850]" />
+  )}
+</div>
             <div>
               <h1 className="font-bold text-[15px] leading-tight m-0 text-white">
                 Aroid<span className="text-[#8c9087] font-normal">Market</span>
@@ -622,7 +648,7 @@ export default function CustomerService({ reports = [] }) {
             <div>
               <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#8c9087] px-2 mb-2">OPERASIONAL CS</p>
               <button
-                onClick={() => setActiveMenu('daily')}
+                onClick={() => { setActiveMenu('daily'); setIsMobileSidebarOpen(false) }}
                 className={`w-full flex items-center gap-[10px] px-3 py-2.5 rounded-[8px] text-left border-none cursor-pointer transition-colors ${
                   activeMenu === 'daily'
                     ? 'bg-[#2f6850] text-white font-semibold'
@@ -637,7 +663,7 @@ export default function CustomerService({ reports = [] }) {
             <div>
               <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#8c9087] px-2 mb-2">MENU PRIORITAS</p>
               <button
-                onClick={() => setActiveMenu('escalation')}
+                onClick={() => { setActiveMenu('escalation'); setIsMobileSidebarOpen(false) }}
                 className={`w-full flex items-center gap-[10px] px-3 py-2.5 rounded-[8px] text-left border-none cursor-pointer transition-colors ${
                   activeMenu === 'escalation'
                     ? 'bg-[#d96b27] text-white font-semibold'
@@ -652,23 +678,19 @@ export default function CustomerService({ reports = [] }) {
         </div>
 
         {/* Sidebar Footer */}
-        <div className="border-t border-white/10 pt-4 flex flex-col gap-3">
-          <button className="flex items-center gap-2 text-xs text-white/70 bg-transparent border-none cursor-pointer px-2 hover:text-white transition-colors">
+                <div className="border-t border-white/10 pt-4 flex flex-col gap-3">
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className="flex items-center gap-2 text-xs text-white/70 bg-transparent border-none cursor-pointer px-2 hover:text-white transition-colors"
+          >
             <Settings className="w-[15px] h-[15px]" /> Pengaturan
           </button>
-          
+
           <div className="flex items-center justify-between bg-white/5 p-2.5 rounded-[10px] border border-white/5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-[30px] h-[30px] rounded-full bg-[#2f6850] text-white text-xs font-bold flex items-center justify-center shrink-0">AS</div>
-              <div>
-                <p className="text-xs font-semibold m-0 leading-none text-white">Alya Sari</p>
-                <p className="text-[10px] text-[#8c9087] m-0 mt-0.5">CS Lead</p>
-              </div>
-            </div>
-            
+            <HeaderUserProfile fallbackUser={user} compact dark />
             <button
               onClick={handleLogout}
-              className="border-none bg-red-500/20 text-red-300 p-1.5 rounded-[6px] cursor-pointer flex items-center justify-center hover:bg-red-500/30 transition-colors"
+              className="border-none bg-red-500/20 text-red-300 p-1.5 rounded-[6px] cursor-pointer flex items-center justify-center hover:bg-red-500/30 transition-colors shrink-0"
               title="Logout"
             >
               <LogOut className="w-[14px] h-[14px]" />
@@ -677,41 +699,106 @@ export default function CustomerService({ reports = [] }) {
         </div>
       </aside>
 
+      {isMobileSidebarOpen && (
+        <button
+          type="button"
+          aria-label="Tutup menu"
+          onClick={() => setIsMobileSidebarOpen(false)}
+          className="fixed inset-0 z-40 bg-black/30 lg:hidden border-none cursor-pointer"
+        />
+      )}
+
       {/* Area Konten Utama */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* Topbar Navigation */}
-        <header className="h-[60px] bg-white border-b border-[#e9e5d9] flex items-center justify-between px-8 text-xs shrink-0">
-          <div className="flex items-center gap-2 text-[#8c9087]">
+        <header className="h-[60px] bg-white border-b border-[#e9e5d9] flex items-center justify-between px-4 sm:px-8 text-xs shrink-0">
+          <div className="flex items-center gap-2 text-[#8c9087] min-w-0">
+            <button
+              type="button"
+              aria-label="Buka menu"
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="lg:hidden w-9 h-9 rounded-[9px] border border-[#e9e5d9] bg-white flex items-center justify-center text-[#2f6850] cursor-pointer shrink-0 hover:bg-[#f7f5ed]"
+            >
+              <Menu className="w-[17px] h-[17px]" />
+            </button>
+            <div className="flex items-center gap-2 min-w-0">
             <span className="text-[10px] font-bold tracking-wider uppercase">WORKSPACE</span>
             <span>/</span>
             <span className="font-bold text-[#1c2826] text-[11px]">CUSTOMER SERVICE</span>
           </div>
-          <div className="flex items-center gap-4 text-[#8c9087]">
-            <span className="bg-[#f7f5ed] border border-[#e9e5d9] px-3 py-1 rounded-full text-[11px] font-medium text-[#1c2826]">
+            </div>
+          <div className="flex items-center gap-2 sm:gap-4 text-[#8c9087] min-w-0">
+            <span className="hidden sm:inline bg-[#f7f5ed] border border-[#e9e5d9] px-3 py-1 rounded-full text-[11px] font-medium text-[#1c2826]">
               {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </span>
             <button className="relative bg-transparent border-none text-[#8c9087] cursor-pointer hover:text-[#1c2826]">
               <Bell className="w-[18px] h-[18px]" />
               {escalationCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#d96b27] rounded-full" />}
             </button>
+        <HeaderUserProfile fallbackUser={user} />
           </div>
         </header>
 
-        <div className="p-8 flex-1 overflow-y-auto">
-          {/* Header Title Banner */}
-          <div className="flex items-end justify-between mb-6">
+        <div className="p-4 sm:p-8 flex-1 overflow-y-auto min-w-0">
+          <div className="max-w-[1400px] mx-auto min-w-0">
+            <div className="mb-6">
+              <ManagerMessageBox />
+            </div>
+
+            {/* Tambahan: riwayat pesan yang dikirim oleh akun Customer Service ini */}
+            <article className="mb-6 bg-white rounded-[16px] border border-[#e9e5d9] p-4 sm:p-6 shadow-sm min-w-0">
+            <div className="mb-5">
+              <p className="text-[10px] font-bold tracking-[0.12em] uppercase text-[#8c9087] mb-1">
+                RIWAYAT PESAN
+              </p>
+              <h2 className="text-[18px] font-bold text-[#1c2826] tracking-tight leading-snug m-0">
+                Pesan Saya ke Manager PMS
+              </h2>
+              <p className="text-[11px] text-[#8c9087] m-0 mt-1">
+                Hanya pesan yang dikirim oleh akun Customer Service ini yang ditampilkan.
+              </p>
+            </div>
+
+            <div className="flex flex-col divide-y divide-[#e9e5d9]">
+              {myManagerMessages.length > 0 ? (
+                myManagerMessages.map((message) => (
+                  <div key={message.id} className="py-3 first:pt-0 last:pb-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#2f6850]/10 text-[#2f6850]">
+                        Customer Service
+                      </span>
+                      <span className="text-[11px] text-[#8c9087]">
+                        • {message.date || message.created_at || '—'}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-[#1c2826] m-0 leading-relaxed whitespace-pre-wrap">
+                      {message.content || message.message || ''}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className="py-2 text-xs text-[#8c9087]">
+                  Belum ada pesan yang dikirim ke Manager PMS.
+                </div>
+              )}
+            </div>
+            </article>
+
+            {/* Header Title Banner */}
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#d96b27] flex items-center gap-1.5 m-0 mb-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#d96b27]" />
                 {activeMenu === 'daily' ? 'OPERASIONAL HARIAN' : 'PENANGANAN PRIORITAS'}
               </p>
-              <h1 className="text-[24px] font-bold text-[#1c2826] m-0">
+              <h1 className="text-[22px] sm:text-[24px] font-bold text-[#1c2826] m-0">
                 {activeMenu === 'daily' ? 'Catatan Pesanan & Harian' : 'Eskalasi Kasus Khusus'}
               </h1>
             </div>
 
             {/* Metric Counter Badges */}
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-2 sm:gap-3">
               <div className="bg-white border border-[#e9e5d9] rounded-[12px] px-4 py-2 text-center min-w-[100px] shadow-sm">
                 <span className="text-[10px] text-[#8c9087] font-bold uppercase block tracking-wider">TINDAKAN</span>
                 <span className="text-[20px] font-bold text-[#1c2826]">{pendingCount}</span>
@@ -723,8 +810,12 @@ export default function CustomerService({ reports = [] }) {
             </div>
           </div>
 
+          <div className="mb-6 min-w-0">
+              <JobdeskInbox />
+          </div>
+
           {/* Grid Layout Form & Table */}
-          <div className="grid grid-cols-[340px_1fr] gap-6 items-start">
+          <div className="grid grid-cols-1 xl:grid-cols-[340px_minmax(0,1fr)] gap-5 sm:gap-6 items-start min-w-0">
             <CsForm allowedCategories={visibleCategories} isEscalationMenu={activeMenu === 'escalation'} />
             <CsTable
               reports={visibleReports}
@@ -733,9 +824,16 @@ export default function CustomerService({ reports = [] }) {
               onUpdate={updateReport}
               isEscalationMenu={activeMenu === 'escalation'}
             />
+            </div>
           </div>
-        </div>
+                </div>
       </main>
+      <ProfileSettingsModal
+        open={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        fallbackUser={user}
+      />
     </div>
   )
+
 }

@@ -28,21 +28,47 @@ class AuthenticatedSessionController extends Controller
      * Handle an incoming authentication request.
      */
     public function store(LoginRequest $request): RedirectResponse
-{
-    $request->authenticate();
+    {
+        $request->authenticate();
 
-    $request->session()->regenerate();
+        $request->session()->regenerate();
 
-    $user = Auth::user();
+        $user = Auth::user();
 
-    // Jika yang login adalah CS
-    if ($user->email === 'cs@aroidmarket.test' || (isset($user->role) && $user->role === 'cs')) {
-        return redirect()->intended(route('customer-service.index', absolute: false));
+        /*
+        |--------------------------------------------------------------------------
+        | Redirect sesuai role
+        |--------------------------------------------------------------------------
+        */
+
+        return match ($user->role) {
+
+            // Manager PMS
+            'manager_pms' => redirect()->route(
+                'manager.dashboard'
+            ),
+
+            // Customer Service
+            'customer_service' => redirect()->route(
+                'customer-service.index'
+            ),
+
+            // PJ Greenhouse / Petani
+            'pj_greenhouse' => redirect()->route(
+                'greenhouse.plants.index'
+            ),
+
+            // Akuntansi & Marketing
+            'akuntansi_marketing' => redirect()->route(
+                'akuntansi.index'
+            ),
+
+            // Role tidak dikenal
+            default => redirect()->route('login')->withErrors([
+                'email' => 'Role akun tidak dikenali.',
+            ]),
+        };
     }
-
-    // UBAH BARIS INI: dari 'dashboard.universal' menjadi 'manager.dashboard'
-    return redirect()->intended(route('manager.dashboard', absolute: false));
-}
 
     /**
      * Destroy an authenticated session.
@@ -52,7 +78,6 @@ class AuthenticatedSessionController extends Controller
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();
-
         $request->session()->regenerateToken();
 
         return redirect()->route('login');

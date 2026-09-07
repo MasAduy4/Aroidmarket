@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Plant;
 use App\Models\PlantCategory;
+use App\Models\ManagerMessage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,18 @@ class GreenhouseController extends Controller
      */
     public function index(Request $request)
     {
+        // Tambahan: PJ Greenhouse hanya menerima pesan Manager PMS
+        // yang dikirim oleh akun PJ Greenhouse yang sedang login.
+        $managerMessages = ManagerMessage::where('user_id', auth()->id())
+            ->latest()
+            ->get()
+            ->map(fn (ManagerMessage $message) => [
+                'id' => $message->id,
+                'content' => $message->message,
+                'date' => optional($message->created_at)?->setTimezone('Asia/Jakarta')->format('d M Y, H:i'),
+            ])
+            ->values();
+
         // 1. Query Plants dengan pencarian & filter dropdown
         $plants = Plant::with(['category', 'pjGreenhouse'])
             ->when($request->search, function ($query, $search) {
@@ -49,6 +62,7 @@ class GreenhouseController extends Controller
             'categories' => PlantCategory::all(),
             'stats'      => $stats,
             'filters'    => $request->only(['search', 'status', 'health_condition']),
+            'managerMessages' => $managerMessages,
         ]);
     }
 

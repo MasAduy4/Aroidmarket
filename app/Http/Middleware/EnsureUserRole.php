@@ -8,11 +8,11 @@ use Symfony\Component\HttpFoundation\Response;
 
 class EnsureUserRole
 {
-    /**
-     * Usage: ->middleware('role:admin')  atau  ->middleware('role:user')
-     */
-    public function handle(Request $request, Closure $next, string $role): Response
-    {
+    public function handle(
+        Request $request,
+        Closure $next,
+        string $role
+    ): Response {
         $user = $request->user();
 
         if (! $user) {
@@ -20,10 +20,7 @@ class EnsureUserRole
         }
 
         if ($user->role !== $role) {
-            // Arahkan ke dashboard sesuai role sebenarnya
-            return $user->role === 'admin'
-                ? redirect()->route('admin.dashboard')
-                : redirect()->route('user.dashboard');
+            abort(403, 'Anda tidak memiliki akses ke halaman ini.');
         }
 
         return $next($request);
